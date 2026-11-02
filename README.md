@@ -35,3 +35,7 @@ All money is integer cents. A line of 3 or more identical items gets 10%
 off that line, rounded to the nearest cent. Mixed carts can hold
 discounted and undiscounted lines at once — `tests/pricing.test.ts` pins
 the behavior down.
+
+## Automated review
+
+Pull requests in this repository are automatically reviewed by Factory Droid.
