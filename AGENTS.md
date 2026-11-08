@@ -16,9 +16,35 @@ agents, so keep the code plain, typed, and well tested.
 - `npm run format:check` — verify formatting without writing changes
 - `npm run dev` — start the dev server at http://localhost:3000
 - `npm run build` — production build
+- `npm run test:ci` — tests with coverage thresholds, retries, and a JUnit report (what CI runs)
+- `npm run test:e2e` — Playwright end-to-end tests; builds and starts the app on port 3000 (first run: `npx playwright install chromium`)
+- `npm run knip` — report unused files, exports, and dependencies
+- `npm run dup:check` — report duplicated code (jscpd)
+- `npm run size` — check client bundle size budgets in `.size-limit.json` (run `npm run build` first)
+- `npm run todo:report` — list TODO, FIXME, and HACK comments in source
+- `npm run docs:generate` — generate TypeDoc API docs for `lib/` into docs/api (gitignored)
+- `npm run agents:check` — verify the commands and paths in this file still exist
+- `npm run prepare` — install the Husky pre-commit hook (runs automatically on `npm ci`)
 
 Run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run format:check`
 before considering any change done.
+
+The pre-commit hook (`.husky/pre-commit`) runs lint-staged: ESLint `--fix` on
+staged TypeScript in `app/`, `lib/`, and `components/`, then Prettier on all
+staged files. It never runs tests.
+
+## Trying the app
+
+1. `npm ci`, then `npm run dev`, and open http://localhost:3000. No login or
+   environment variables are needed.
+2. Click "Add to cart" on one item three times (for example Drip Coffee,
+   $3.50).
+3. Confirm that cart line is 10% off: 3 × $3.50 = $10.50, shown as $9.45.
+4. Check the cart total: $9.45 for that cart. Adding one Espresso ($2.95)
+   makes it $12.40.
+
+The full checklist, including the health check, is in
+`.factory/skills/storefront-qa/SKILL.md`.
 
 ## Conventions
 
@@ -36,9 +62,33 @@ before considering any change done.
 - Commit messages: one line, imperative, lowercase, no prefix. Example:
   `apply bulk discount per cart line, not per cart`.
 
+### Naming
+
+- camelCase for functions, variables, parameters, and properties
+  (`calculateLineTotal`, `priceCents`).
+- PascalCase for types and React components (`CartItem`, `Storefront`).
+  Component files use the component name (`components/Storefront.tsx`).
+- SCREAMING_SNAKE_CASE for module-level constants (`BULK_DISCOUNT_THRESHOLD`,
+  `PRODUCTS`).
+- kebab-case for ids and slugs: product ids (`cold-brew`), branch slugs, and
+  skill names.
+- Route handlers keep the HTTP method names Next.js requires (`GET`).
+- `npm run lint` enforces the identifier rules in `app/`, `components/`, and
+  `lib/` with `@typescript-eslint/naming-convention`, and also caps cyclomatic
+  complexity at 10 per function and files at 400 lines (`.eslintrc.json`).
+
+## Docs
+
+- `docs/architecture.md` — how the catalog, cart, pricing core, and currency
+  formatting fit together, and where UI and pure logic live.
+- `docs/runbooks/local-development.md` — setup, common local failures, and
+  the health check.
+- Server code that does I/O (logging) lives in `server/`, not `lib/`.
+
 ## Pull requests
 
 - Branch from `main`, name branches `feature/<slug>`.
-- The PR description states what changed, why, and which tests cover it.
+- The PR description states what changed, why, and which tests cover it
+  (`.github/pull_request_template.md`).
 - CI must be green before requesting review.
 - Never commit `.env*` files or secrets.

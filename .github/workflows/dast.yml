@@ -1,0 +1,40 @@
+name: DAST
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Start the app and wait for /api/health
+        run: |
+          npm run start > next-start.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/api/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat next-start.log
+          exit 1
+      - name: OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: http://localhost:3000
+          fail_action: false
+          allow_issue_writing: false
+          artifact_name: zap-baseline-report

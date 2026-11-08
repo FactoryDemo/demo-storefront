@@ -1,0 +1,104 @@
+name: Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        # Explicit bash enables pipefail, so `| tee` keeps each tool's exit code.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: mkdir -p reports/analysis
+
+      - name: Unused files, exports, and dependencies (knip)
+        id: knip
+        continue-on-error: true
+        run: npm run knip 2>&1 | tee reports/analysis/knip.txt
+
+      - name: Duplicate code (jscpd)
+        id: dup
+        continue-on-error: true
+        run: npm run dup:check 2>&1 | tee reports/analysis/dup.txt
+
+      - name: Production build (timed)
+        id: build
+        continue-on-error: true
+        run: |
+          start=$(date +%s)
+          npm run build 2>&1 | tee reports/analysis/build.txt
+          echo "seconds=$(( $(date +%s) - start ))" >> "$GITHUB_OUTPUT"
+
+      - name: Bundle size (size-limit)
+        id: size
+        continue-on-error: true
+        run: npm run size 2>&1 | tee reports/analysis/size.txt
+
+      - name: Tech debt markers
+        id: todo
+        continue-on-error: true
+        run: npm run todo:report 2>&1 | tee reports/analysis/todo.txt
+
+      - name: API docs (TypeDoc)
+        id: docs
+        continue-on-error: true
+        run: npm run docs:generate 2>&1 | tee reports/analysis/docs.txt
+
+      - name: Upload API docs
+        if: steps.docs.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-docs
+          path: docs/api/
+
+      - name: Write summary
+        if: always()
+        env:
+          KNIP: ${{ steps.knip.outcome }}
+          DUP: ${{ steps.dup.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          BUILD_SECONDS: ${{ steps.build.outputs.seconds }}
+          SIZE: ${{ steps.size.outcome }}
+          TODO: ${{ steps.todo.outcome }}
+          DOCS: ${{ steps.docs.outcome }}
+        run: |
+          details() {
+            echo "<details><summary>$1</summary>"
+            echo
+            echo '```'
+            sed 's/\x1b\[[0-9;]*m//g' "reports/analysis/$2" 2>/dev/null | tail -n 60
+            echo '```'
+            echo
+            echo "</details>"
+          }
+          {
+            echo "## Analysis (report-only)"
+            echo
+            echo "| Check | Outcome |"
+            echo "| --- | --- |"
+            echo "| Unused code and dependencies (knip) | $KNIP |"
+            echo "| Duplicate code (jscpd) | $DUP |"
+            echo "| Production build | $BUILD (${BUILD_SECONDS:-?}s) |"
+            echo "| Bundle size (size-limit) | $SIZE |"
+            echo "| Tech debt markers | $TODO |"
+            echo "| API docs (TypeDoc) | $DOCS |"
+            echo
+            echo "**Build duration:** ${BUILD_SECONDS:-unknown} seconds for \`npm run build\`."
+            echo
+            grep -h "Tech debt markers:" reports/analysis/todo.txt 2>/dev/null || true
+            echo
+            details "knip" knip.txt
+            details "jscpd" dup.txt
+            details "size-limit" size.txt
+            details "Tech debt markers" todo.txt
+          } >> "$GITHUB_STEP_SUMMARY"

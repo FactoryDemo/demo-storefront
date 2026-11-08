@@ -1,4 +1,72 @@
 {
   "root": true,
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "plugins": ["@typescript-eslint"],
+  "rules": {
+    "complexity": ["error", 10],
+    "max-lines": [
+      "error",
+      { "max": 400, "skipBlankLines": true, "skipComments": true }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.ts", "**/*.tsx"],
+      "parser": "@typescript-eslint/parser",
+      "rules": {
+        "@typescript-eslint/naming-convention": [
+          "error",
+          {
+            "selector": "default",
+            "format": ["camelCase"],
+            "leadingUnderscore": "allow"
+          },
+          {
+            "selector": "import",
+            "format": ["camelCase", "PascalCase"]
+          },
+          {
+            "selector": "variable",
+            "format": ["camelCase"],
+            "leadingUnderscore": "allow"
+          },
+          {
+            "selector": "variable",
+            "modifiers": ["const"],
+            "format": ["camelCase", "PascalCase", "UPPER_CASE"],
+            "leadingUnderscore": "allow"
+          },
+          {
+            "selector": "function",
+            "filter": {
+              "regex": "^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$",
+              "match": true
+            },
+            "format": null
+          },
+          {
+            "selector": "function",
+            "format": ["camelCase", "PascalCase"]
+          },
+          {
+            "selector": "typeLike",
+            "format": ["PascalCase"]
+          },
+          {
+            "selector": "enumMember",
+            "format": ["PascalCase", "UPPER_CASE"]
+          },
+          {
+            "selector": [
+              "objectLiteralProperty",
+              "typeProperty",
+              "objectLiteralMethod"
+            ],
+            "modifiers": ["requiresQuotes"],
+            "format": null
+          }
+        ]
+      }
+    }
+  ]
 }

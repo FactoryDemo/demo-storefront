@@ -1,0 +1,31 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Tests with coverage thresholds and JUnit report
+        run: npm run test:ci
+      - name: Upload coverage and test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: |
+            coverage/
+            reports/
+          if-no-files-found: warn
+      - name: Summarize coverage and test durations
+        if: always()
+        run: node scripts/quality-summary.mjs >> "$GITHUB_STEP_SUMMARY"
