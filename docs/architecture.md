@@ -2,53 +2,88 @@
 
 Bean & Byte is a single Next.js 14 (App Router) application. It has no
 database and calls no external APIs: the catalog is a static list in code,
-the cart lives in React state in the browser, and every price comes from a
-pure TypeScript pricing core.
+the cart lives in the browser, every price comes from a pure TypeScript
+pricing core, and checkout places mock pickup orders that are never charged
+or stored.
 
 ## Catalog to rendered price
 
 ```mermaid
 flowchart LR
   subgraph ui["UI: app/ and components/"]
-    page["app/page.tsx<br/>home route"]
-    storefront["components/Storefront.tsx<br/>catalog grid + cart state"]
-    page --> storefront
+    layout["app/layout.tsx<br/>CartProvider, SiteHeader, CartDrawer"]
+    storefront["components/Storefront.tsx<br/>menu by category"]
+    card["components/ProductCard.tsx<br/>photo, price, Add to cart"]
+    drawer["components/CartDrawer.tsx<br/>lines, quantities, total"]
+    checkout["components/Checkout.tsx<br/>pickup form + summary"]
+    layout --> storefront --> card
+    layout --> drawer
   end
 
   subgraph core["Pure logic: lib/"]
     catalog["Catalog<br/>lib/products.ts"]
+    cart["Cart updates<br/>lib/cart.ts"]
     pricing["Pricing core<br/>lib/pricing.ts<br/>line + cart totals in cents"]
-    currency["Currency formatting<br/>lib/currency.ts<br/>cents to $ string"]
-    types["Shared types<br/>lib/types.ts"]
+    orders["Orders<br/>lib/orders.ts<br/>validate + price"]
+    currency["Currency formatting<br/>lib/currency.ts"]
   end
 
-  catalog -- "PRODUCTS" --> storefront
-  storefront -- "cart: productId + quantity" --> pricing
+  catalog -- "CATEGORIES, PRODUCTS" --> storefront
+  card -- "addItem" --> cart
+  drawer -- "cart: productId + quantity" --> pricing
+  checkout -- "cart" --> pricing
   pricing -- "getProduct" --> catalog
-  pricing -- "total in cents" --> currency
-  currency -- "display string" --> storefront
-  types -.-> catalog
-  types -.-> pricing
+  orders -- "priceLines, calculateCartTotal" --> pricing
+  pricing -- "cents" --> currency
 ```
 
-1. **Catalog.** `lib/products.ts` exports `PRODUCTS` and `getProduct`.
-   `Storefront` renders one card per product.
-2. **Cart.** `Storefront` keeps the cart as `CartItem[]` (product id and
-   quantity) in `useState`. "Add to cart" and the +/− buttons only change
-   quantities; they never compute money.
-3. **Pricing core.** `calculateLineTotal` and `calculateCartTotal` in
-   `lib/pricing.ts` turn quantities into integer cents. A line of 3 or more
-   of one item is 10% off, rounded to the nearest cent.
+1. **Catalog.** `lib/products.ts` exports `CATEGORIES`, `PRODUCTS`, and
+   `getProduct`. Each product has a category, a description, and a photo in
+   `public/products/<id>.jpg`. `Storefront` renders one section per
+   category and one `ProductCard` per product.
+2. **Cart.** `components/CartProvider.tsx` holds the cart as `CartItem[]`
+   (product id and quantity) for every page and saves it in
+   `localStorage`. The quantity changes themselves are pure functions in
+   `lib/cart.ts`. Cart UI only changes quantities; it never computes money.
+3. **Pricing core.** `calculateLineTotal`, `priceLines`, and
+   `calculateCartTotal` in `lib/pricing.ts` turn quantities into integer
+   cents. A line of 3 or more of one item is 10% off, rounded to the nearest
+   cent.
 4. **Currency formatting.** `formatCurrency` in `lib/currency.ts` is the only
    place cents become a display string such as `$9.45`.
+
+## Checkout
+
+```mermaid
+sequenceDiagram
+  participant B as Browser (components/Checkout.tsx)
+  participant R as POST /api/orders
+  participant O as lib/orders.ts
+  B->>R: name, pickup slot, items
+  R->>O: validateOrderRequest
+  O-->>R: errors, or a clean request
+  R->>O: buildOrder (re-prices from the catalog)
+  R-->>B: 201 order, or 400 errors
+  B->>B: save order in sessionStorage, clear cart
+  B->>B: go to /orders/[id]
+```
+
+- The server never trusts client totals: `buildOrder` prices every line
+  again through `lib/pricing.ts`.
+- `validateOrderRequest` rejects blank or long names, unknown pickup slots,
+  empty carts, unknown products, and quantities outside 1 to 99, and merges
+  repeated products into one line.
+- Orders are not stored. The confirmation page (`app/orders/[id]/page.tsx`)
+  reads the last order from `sessionStorage` in the same tab.
 
 ## Where code lives
 
 | Directory | Contains | Rules |
 | --- | --- | --- |
-| `app/` | Routes: the home page, the root layout, and `app/api/health/route.ts` | UI and HTTP only; no pricing math |
-| `components/` | React components (`Storefront`) | Calls into `lib/` for every price |
-| `lib/` | Pricing, catalog, currency, types | Pure TypeScript: no React, no I/O, integer cents |
+| `app/` | Routes: the menu, `/checkout`, `/orders/[id]`, the root layout, `app/api/orders/route.ts`, and `app/api/health/route.ts` | UI and HTTP only; no pricing math |
+| `components/` | React components (`Storefront`, `ProductCard`, `CartProvider`, `CartDrawer`, `Checkout`, `OrderConfirmation`) | Calls into `lib/` for every price |
+| `lib/` | Catalog, cart updates, pricing, orders, currency, types | Pure TypeScript: no React, no I/O, integer cents |
+| `public/products/` | Product photos, one JPEG per product id | 800 × 800, served through `next/image` |
 | `server/` | Server-only helpers such as the JSON logger | May do I/O; never imported by client components |
 | `tests/` | Vitest unit tests | Mirror the module they cover |
 | `e2e/` | Playwright browser tests | Drive the built app on port 3000 |
@@ -57,16 +92,23 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  client["Browser, probe, or curl"] -- "GET /api/health" --> route["app/api/health/route.ts"]
-  route -- "info event" --> logger["server/logger.ts<br/>JSON lines, redacted"]
+  client["Browser, probe, or curl"] -- "GET /api/health" --> health["app/api/health/route.ts"]
+  client -- "POST /api/orders" --> ordersRoute["app/api/orders/route.ts"]
+  health -- "info event" --> logger["server/logger.ts<br/>JSON lines, redacted"]
+  ordersRoute -- "order placed / rejected" --> logger
   logger --> stdout["stdout / stderr"]
-  instrumentation["instrumentation.ts<br/>@vercel/otel, service bean-and-byte"] -. "trace context" .-> route
+  instrumentation["instrumentation.ts<br/>@vercel/otel, service bean-and-byte"] -. "trace context" .-> health
+  instrumentation -. "trace context" .-> ordersRoute
   instrumentation -. "OTLP, only when configured" .-> collector["Trace collector"]
 ```
 
 - **Health check.** `GET /api/health` returns `{"status":"ok"}` with HTTP
   200 and is never cached (`dynamic = "force-dynamic"`). Probes, the
   Playwright suite, and the DAST workflow use it as the readiness signal.
+- **Orders.** `POST /api/orders` returns the priced order with HTTP 201, or
+  `{"errors": [...]}` with HTTP 400. It logs `order placed` with the order
+  id, pickup slot, line count, and total in cents, and `order rejected` with
+  the validation errors. The customer's name is never logged.
 - **Logging.** `server/logger.ts` writes one JSON object per line with
   `timestamp`, `level`, `message`, the active `traceId`/`spanId` when a span
   is recording, and the event fields. Values under keys that look sensitive

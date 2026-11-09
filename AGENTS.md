@@ -2,8 +2,8 @@
 
 ## Project
 
-Bean & Byte is a small demo storefront: a Next.js (App Router) catalog and
-cart with a pure TypeScript pricing core. It exists to be worked on by
+Bean & Byte is a small demo storefront: a Next.js (App Router) menu, cart,
+and mock pickup checkout with a pure TypeScript pricing core. It exists to be worked on by
 agents, so keep the code plain, typed, and well tested.
 
 ## Commands
@@ -38,10 +38,12 @@ staged files. It never runs tests.
 1. `npm ci`, then `npm run dev`, and open http://localhost:3000. No login or
    environment variables are needed.
 2. Click "Add to cart" on one item three times (for example Drip Coffee,
-   $3.50).
+   $3.50), then open the cart from the header.
 3. Confirm that cart line is 10% off: 3 × $3.50 = $10.50, shown as $9.45.
 4. Check the cart total: $9.45 for that cart. Adding one Espresso ($2.95)
    makes it $12.40.
+5. Click Checkout, enter a name, and place the order. The confirmation page
+   shows an order number and the same $12.40 total. Nothing is charged.
 
 The full checklist, including the health check, is in
 `.factory/skills/storefront-qa/SKILL.md`.
@@ -53,6 +55,9 @@ The full checklist, including the health check, is in
   `lib/currency.ts`.
 - `lib/` is pure logic with no React and no I/O; UI lives in `components/`
   and `app/`. Keep it that way.
+- The cart is shared by every page through `components/CartProvider.tsx`.
+  Checkout posts to `app/api/orders/route.ts`, which re-prices the order
+  with `lib/orders.ts`; never trust a total sent by the browser.
 - Tests live in `tests/` and mirror the module they cover
   (`tests/pricing.test.ts` covers `lib/pricing.ts`). Cover edge cases:
   zero quantities, boundaries (e.g. the bulk discount threshold), and
@@ -79,8 +84,8 @@ The full checklist, including the health check, is in
 
 ## Docs
 
-- `docs/architecture.md` — how the catalog, cart, pricing core, and currency
-  formatting fit together, and where UI and pure logic live.
+- `docs/architecture.md` — how the catalog, cart, pricing core, checkout,
+  and currency formatting fit together, and where UI and pure logic live.
 - `docs/runbooks/local-development.md` — setup, common local failures, and
   the health check.
 - Server code that does I/O (logging) lives in `server/`, not `lib/`.
