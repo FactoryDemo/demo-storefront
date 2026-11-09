@@ -64,6 +64,12 @@ The full checklist, including the health check, is in
   rounding.
 - Prefer named exports and explicit types over cleverness. TypeScript
   strict mode is on; do not silence it.
+- Analytics event names and feature flag keys live in `lib/analytics.ts`.
+  Send events with `track()` from `components/posthog.ts`, and never put the
+  customer's name or other personal data in event properties. Every flag is
+  off until PostHog answers, so the app must work with all flags off.
+- Wrap API route handlers in `withTelemetry` from `server/telemetry.ts` so
+  errors are reported and metrics are flushed.
 - Commit messages: one line, imperative, lowercase, no prefix. Example:
   `apply bulk discount per cart line, not per cart`.
 
@@ -88,7 +94,9 @@ The full checklist, including the health check, is in
   and currency formatting fit together, and where UI and pure logic live.
 - `docs/runbooks/local-development.md` — setup, common local failures, and
   the health check.
-- Server code that does I/O (logging) lives in `server/`, not `lib/`.
+- `docs/runbooks/observability.md` — where analytics, errors, traces,
+  metrics, profiles, deploys, and alerts go, and what to do when one fires.
+- Server code that does I/O (logging, telemetry) lives in `server/`, not `lib/`.
 
 ## Pull requests
 

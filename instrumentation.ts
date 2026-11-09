@@ -1,10 +1,17 @@
 import { registerOTel } from "@vercel/otel";
+import { SERVICE_NAME } from "./server/release";
 
 /**
- * Called once by Next.js when the server starts. Spans are only exported when
- * an exporter is configured (for example OTEL_EXPORTER_OTLP_ENDPOINT); without
- * one, tracing still runs in-process and log lines carry the trace id.
+ * Called once by Next.js when the server starts. Telemetry is exported only
+ * when its environment variables are set (see .env.example); without them,
+ * tracing still runs in-process and log lines carry the trace id.
  */
-export function register(): void {
-  registerOTel({ serviceName: "bean-and-byte" });
+export async function register(): Promise<void> {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { registerNodeTelemetry } =
+      await import("./server/instrumentation-node");
+    await registerNodeTelemetry();
+    return;
+  }
+  registerOTel({ serviceName: SERVICE_NAME });
 }

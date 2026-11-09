@@ -84,7 +84,7 @@ sequenceDiagram
 | `components/` | React components (`Storefront`, `ProductCard`, `CartProvider`, `CartDrawer`, `Checkout`, `OrderConfirmation`) | Calls into `lib/` for every price |
 | `lib/` | Catalog, cart updates, pricing, orders, currency, types | Pure TypeScript: no React, no I/O, integer cents |
 | `public/products/` | Product photos, one JPEG per product id | 800 × 800, served through `next/image` |
-| `server/` | Server-only helpers such as the JSON logger | May do I/O; never imported by client components |
+| `server/` | Server-only helpers: the JSON logger, telemetry (metrics, error reporting), and OpenTelemetry and profiler setup | May do I/O; never imported by client components |
 | `tests/` | Vitest unit tests | Mirror the module they cover |
 | `e2e/` | Playwright browser tests | Drive the built app on port 3000 |
 
@@ -115,13 +115,36 @@ flowchart LR
   (password, token, authorization, cookie, email, card, and similar) are
   replaced with `[REDACTED]` at any depth. `LOG_LEVEL` sets the minimum
   level (default `info`).
-- **Tracing.** `instrumentation.ts` registers OpenTelemetry through
-  `@vercel/otel` with the service name `bean-and-byte`. Spans are exported
-  only when an exporter is configured, for example with
-  `OTEL_EXPORTER_OTLP_ENDPOINT`; no external service is needed to run the
-  app.
+- **Tracing and metrics.** `instrumentation.ts` loads
+  `server/instrumentation-node.ts`, which registers OpenTelemetry through
+  `@vercel/otel` with the service name `bean-and-byte`. Route handlers are
+  wrapped in `withTelemetry` (`server/telemetry.ts`), which records the
+  `orders_placed`, `orders_rejected`, `order_value_cents`,
+  `server_errors`, and `health_checks` metrics, turns an unexpected error
+  into a reported 500, and flushes telemetry before the function freezes.
+  Traces and metrics are exported over OTLP only when
+  `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+- **Profiling.** With `PYROSCOPE_SERVER_ADDRESS` set, the same file starts
+  the Pyroscope Node.js profiler (CPU, wall, and heap), tagged with the repo
+  and version.
+- **Product analytics, feature flags, and error tracking.**
+  `components/posthog.ts` loads PostHog in a separate chunk when
+  `NEXT_PUBLIC_POSTHOG_KEY` is set. Event names and their properties live in
+  `lib/analytics.ts` (never the customer's name); flags are read with
+  `useFeatureFlag`. Browser exceptions, `app/error.tsx`, and server errors
+  (`captureServerError`) all go to PostHog error tracking, tagged with the
+  repo, version, and environment.
 
 ## External dependencies
 
-None at runtime. The app needs no environment variables, credentials, or
-services. CI uses GitHub Actions only.
+The app needs none to run: with no environment variables (local dev, CI,
+tests) nothing is sent anywhere. Deployed on Vercel, it uses:
+
+| Service | Used for | Configured by |
+| --- | --- | --- |
+| Vercel | Hosting; every push to `main` deploys to production, pull requests get previews | Vercel GitHub app |
+| PostHog | Product analytics, feature flags, error tracking | `NEXT_PUBLIC_POSTHOG_*` |
+| Grafana Cloud | Traces (Tempo), metrics (Prometheus), profiles (Pyroscope), dashboard, alerts | `OTEL_EXPORTER_OTLP_*`, `PYROSCOPE_*`, `observability/grafana/` |
+
+How to use them when something breaks is in
+`docs/runbooks/observability.md`.

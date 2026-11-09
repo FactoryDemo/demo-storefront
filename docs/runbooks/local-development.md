@@ -22,6 +22,8 @@ most often.
    ```
 
 No environment variables, accounts, or external services are needed.
+Telemetry (PostHog, Grafana Cloud) is optional and off unless its variables
+are set; see `.env.example` and `docs/runbooks/observability.md`.
 
 ## Check that the app is healthy
 

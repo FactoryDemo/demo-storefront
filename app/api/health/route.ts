@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { logger } from "../../../server/logger";
+import { recordHealthCheck, withTelemetry } from "../../../server/telemetry";
 
 export const dynamic = "force-dynamic";
 
-export function GET(): NextResponse {
-  logger.info("health check", { route: "/api/health", status: "ok" });
+const ROUTE = "/api/health";
+
+export const GET = withTelemetry(ROUTE, () => {
+  logger.info("health check", { route: ROUTE, status: "ok" });
+  recordHealthCheck();
   return NextResponse.json({ status: "ok" });
-}
+});
