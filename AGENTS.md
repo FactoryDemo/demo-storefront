@@ -103,5 +103,11 @@ The full checklist, including the health check, is in
 - Branch from `main`, name branches `feature/<slug>`.
 - The PR description states what changed, why, and which tests cover it
   (`.github/pull_request_template.md`).
-- CI must be green before requesting review.
+- Run the local checks above before opening the PR, then stop: opening the
+  PR is the end of the task. Do not wait for, poll, or watch CI afterwards
+  (no `gh pr checks`, `gh run watch`, or `gh run view`, and no sleeping until
+  checks finish). CI and review happen on the PR, and the team follows up
+  there.
+- Read CI results only when a task asks you to fix a failing check on a PR.
+  Push that fix to the same PR and stop again.
 - Never commit `.env*` files or secrets.
