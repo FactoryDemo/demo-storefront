@@ -6,7 +6,7 @@ the cart lives in the browser, every price comes from a pure TypeScript
 pricing core, and checkout places mock pickup orders that are never charged
 or stored.
 
-## Catalog to rendered price
+## Request and data flow
 
 ```mermaid
 flowchart LR
@@ -85,50 +85,33 @@ sequenceDiagram
 | `lib/` | Catalog, cart updates, pricing, orders, currency, types | Pure TypeScript: no React, no I/O, integer cents |
 | `public/products/` | Product photos, one JPEG per product id | 800 × 800, served through `next/image` |
 | `server/` | Server-only helpers: the JSON logger, telemetry (metrics, error reporting), and OpenTelemetry and profiler setup | May do I/O; never imported by client components |
-| `tests/` | Vitest unit tests | Mirror the module they cover |
-| `e2e/` | Playwright browser tests | Drive the built app on port 3000 |
+| `tests/` | Vitest unit tests, one file per module | Run with `npm test` |
+| `e2e/` | Playwright end-to-end tests against a production build | Run with `npm run test:e2e` |
 
-## Server-side pieces
+## Server side and observability
 
-```mermaid
-flowchart LR
-  client["Browser, probe, or curl"] -- "GET /api/health" --> health["app/api/health/route.ts"]
-  client -- "POST /api/orders" --> ordersRoute["app/api/orders/route.ts"]
-  health -- "info event" --> logger["server/logger.ts<br/>JSON lines, redacted"]
-  ordersRoute -- "order placed / rejected" --> logger
-  logger --> stdout["stdout / stderr"]
-  instrumentation["instrumentation.ts<br/>@vercel/otel, service bean-and-byte"] -. "trace context" .-> health
-  instrumentation -. "trace context" .-> ordersRoute
-  instrumentation -. "OTLP, only when configured" .-> collector["Trace collector"]
-```
-
-- **Health check.** `GET /api/health` returns `{"status":"ok"}` with HTTP
-  200 and is never cached (`dynamic = "force-dynamic"`). Probes, the
-  Playwright suite, and the DAST workflow use it as the readiness signal.
-- **Orders.** `POST /api/orders` returns the priced order with HTTP 201, or
-  `{"errors": [...]}` with HTTP 400. It logs `order placed` with the order
-  id, pickup slot, line count, and total in cents, and `order rejected` with
-  the validation errors. The customer's name is never logged.
-- **Logging.** `server/logger.ts` writes one JSON object per line with
-  `timestamp`, `level`, `message`, the active `traceId`/`spanId` when a span
-  is recording, and the event fields. Values under keys that look sensitive
-  (password, token, authorization, cookie, email, card, and similar) are
-  replaced with `[REDACTED]` at any depth. `LOG_LEVEL` sets the minimum
-  level (default `info`).
-- **Tracing and metrics.** `instrumentation.ts` loads
-  `server/instrumentation-node.ts`, which registers OpenTelemetry through
-  `@vercel/otel` with the service name `bean-and-byte`. Route handlers are
-  wrapped in `withTelemetry` (`server/telemetry.ts`), which records the
-  `orders_placed`, `orders_rejected`, `order_value_cents`,
-  `server_errors`, and `health_checks` metrics, turns an unexpected error
-  into a reported 500, and flushes telemetry before the function freezes.
-  Traces and metrics are exported over OTLP only when
-  `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
-- **Profiling.** With `PYROSCOPE_SERVER_ADDRESS` set, the same file starts
-  the Pyroscope Node.js profiler (CPU, wall, and heap), tagged with the repo
-  and version.
-- **Product analytics, feature flags, and error tracking.**
-  `components/posthog.ts` loads PostHog in a separate chunk when
+- `app/api/health/route.ts` answers `GET /api/health` with
+  `{"status":"ok"}` and logs each check through `server/logger.ts`.
+- `app/api/orders/route.ts` answers `POST /api/orders` with the priced
+  order (HTTP 201) or `{"errors": [...]}` (HTTP 400). It logs
+  `order placed` with the order id, pickup slot, line count, and total in
+  cents, and `order rejected` with the validation errors. The customer's
+  name is never logged.
+- `server/logger.ts` writes one JSON object per line (`timestamp`, `level`,
+  `message`, extra fields) to stdout, or stderr for warnings and errors.
+  Fields whose keys look sensitive (password, token, authorization, cookie,
+  email, card, and similar) are replaced with `[REDACTED]`.
+- `instrumentation.ts` loads `server/instrumentation-node.ts`, which
+  registers OpenTelemetry through `@vercel/otel` with the service name
+  `bean-and-byte`. Route handlers are wrapped in `withTelemetry`
+  (`server/telemetry.ts`), which records the `orders_placed`,
+  `orders_rejected`, `order_value_cents`, `server_errors`, and
+  `health_checks` metrics, turns an unexpected error into a reported 500,
+  and flushes telemetry before the function freezes. Traces and metrics are
+  exported over OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+- With `PYROSCOPE_SERVER_ADDRESS` set, the same file starts the Pyroscope
+  Node.js profiler (CPU, wall, and heap), tagged with the repo and version.
+- `components/posthog.ts` loads PostHog in a separate chunk when
   `NEXT_PUBLIC_POSTHOG_KEY` is set. Event names and their properties live in
   `lib/analytics.ts` (never the customer's name); flags are read with
   `useFeatureFlag`. Browser exceptions, `app/error.tsx`, and server errors

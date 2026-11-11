@@ -1,71 +1,66 @@
 #!/usr/bin/env node
-// Lists TODO, FIXME, and HACK comments in source files that git tracks (or
-// would track), so technical debt stays visible. Report-only: exits 0.
-import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import path from "node:path";
+// Lists TODO, FIXME, and HACK comments in source files. Report-only: always
+// exits 0 so it can run in CI without blocking.
+import { readdirSync, readFileSync } from "node:fs";
+import { extname, join, relative } from "node:path";
 
-const SOURCE_FILE = /\.(?:[cm]?[jt]sx?|css)$/;
-const SKIPPED_DIRS = new Set([".git", ".next", "node_modules", "coverage"]);
-const MARKER = /(?:\/\/|\/\*|^\s*\*)\s*(TODO|FIXME|HACK)\b(.*)$/;
+const ROOT = process.cwd();
+const SOURCE_EXTENSIONS = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".css",
+]);
+const SKIPPED_DIRECTORIES = new Set([
+  ".git",
+  ".next",
+  "node_modules",
+  "out",
+  "coverage",
+  "reports",
+  "playwright-report",
+  "test-results",
+  "docs",
+]);
+const MARKER =
+  /(?:\/\/|\/\*|^\s*\*)\s*(TODO|FIXME|HACK)\b[\s:(-]*(.*?)\s*(?:\*\/)?$/;
 
-function listWithGit() {
-  const output = execFileSync(
-    "git",
-    ["ls-files", "--cached", "--others", "--exclude-standard"],
-    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
-  );
-  return output.split("\n").filter(Boolean);
-}
-
-function listByWalking(dir = ".") {
-  const files = [];
-  for (const name of readdirSync(dir)) {
-    const full = path.join(dir, name);
-    if (statSync(full).isDirectory()) {
-      if (!SKIPPED_DIRS.has(name)) files.push(...listByWalking(full));
-    } else {
-      files.push(full);
+function* sourceFiles(directory) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (!SKIPPED_DIRECTORIES.has(entry.name)) {
+        yield* sourceFiles(join(directory, entry.name));
+      }
+    } else if (SOURCE_EXTENSIONS.has(extname(entry.name))) {
+      yield join(directory, entry.name);
     }
   }
-  return files;
 }
 
-function listSourceFiles() {
-  let files;
-  try {
-    files = listWithGit();
-  } catch {
-    files = listByWalking();
-  }
-  return files.filter((file) => SOURCE_FILE.test(file) && existsSync(file));
-}
-
-function findMarkers(file) {
+const findings = [];
+for (const file of sourceFiles(ROOT)) {
   const lines = readFileSync(file, "utf8").split("\n");
-  const found = [];
   lines.forEach((line, index) => {
     const match = MARKER.exec(line);
     if (match) {
-      const note = match[2]
-        .replace(/\*\/\s*$/, "")
-        .replace(/^[\s:-]+/, "")
-        .trim();
-      found.push({ file, line: index + 1, marker: match[1], note });
+      findings.push({
+        location: `${relative(ROOT, file)}:${index + 1}`,
+        tag: match[1],
+        text: match[2],
+      });
     }
   });
-  return found;
 }
 
-const markers = listSourceFiles().flatMap(findMarkers);
 const counts = { TODO: 0, FIXME: 0, HACK: 0 };
-for (const { marker } of markers) counts[marker] += 1;
-
-const fileCount = new Set(markers.map((m) => m.file)).size;
-console.log(
-  `Tech debt markers: ${markers.length} in ${fileCount} file(s) ` +
-    `(TODO ${counts.TODO}, FIXME ${counts.FIXME}, HACK ${counts.HACK})`
-);
-for (const { file, line, marker, note } of markers) {
-  console.log(`  ${file}:${line}  ${marker}  ${note}`);
+for (const finding of findings) {
+  counts[finding.tag] += 1;
+  console.log(`${finding.location}  ${finding.tag}  ${finding.text}`);
 }
+console.log(
+  `\n${findings.length} tech debt marker(s): ` +
+    `${counts.TODO} TODO, ${counts.FIXME} FIXME, ${counts.HACK} HACK`
+);

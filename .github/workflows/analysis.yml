@@ -5,13 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   analysis:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        # Explicit bash enables pipefail, so `| tee` keeps each tool's exit code.
-        shell: bash
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -19,86 +18,80 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: mkdir -p reports/analysis
 
       - name: Unused files, exports, and dependencies (knip)
         id: knip
         continue-on-error: true
-        run: npm run knip 2>&1 | tee reports/analysis/knip.txt
+        shell: bash
+        run: npm run knip 2>&1 | tee "$RUNNER_TEMP/knip.txt"
 
       - name: Duplicate code (jscpd)
         id: dup
         continue-on-error: true
-        run: npm run dup:check 2>&1 | tee reports/analysis/dup.txt
+        shell: bash
+        run: npm run dup:check 2>&1 | tee "$RUNNER_TEMP/dup.txt"
 
-      - name: Production build (timed)
-        id: build
+      - name: Tech debt markers
+        id: todo
         continue-on-error: true
+        shell: bash
+        run: npm run todo:report 2>&1 | tee "$RUNNER_TEMP/todo.txt"
+
+      - name: API docs (TypeDoc)
+        id: docs
+        continue-on-error: true
+        run: npm run docs:generate
+
+      - name: Build (timed)
+        id: build
+        shell: bash
         run: |
           start=$(date +%s)
-          npm run build 2>&1 | tee reports/analysis/build.txt
+          npm run build
           echo "seconds=$(( $(date +%s) - start ))" >> "$GITHUB_OUTPUT"
 
       - name: Bundle size (size-limit)
         id: size
         continue-on-error: true
-        run: npm run size 2>&1 | tee reports/analysis/size.txt
+        shell: bash
+        run: npm run size 2>&1 | tee "$RUNNER_TEMP/size.txt"
 
-      - name: Tech debt markers
-        id: todo
-        continue-on-error: true
-        run: npm run todo:report 2>&1 | tee reports/analysis/todo.txt
-
-      - name: API docs (TypeDoc)
-        id: docs
-        continue-on-error: true
-        run: npm run docs:generate 2>&1 | tee reports/analysis/docs.txt
-
-      - name: Upload API docs
-        if: steps.docs.outcome == 'success'
-        uses: actions/upload-artifact@v7
-        with:
-          name: api-docs
-          path: docs/api/
-
-      - name: Write summary
+      - name: Summary
         if: always()
+        shell: bash
         env:
           KNIP: ${{ steps.knip.outcome }}
           DUP: ${{ steps.dup.outcome }}
+          TODO_REPORT: ${{ steps.todo.outcome }}
+          DOCS: ${{ steps.docs.outcome }}
           BUILD: ${{ steps.build.outcome }}
           BUILD_SECONDS: ${{ steps.build.outputs.seconds }}
           SIZE: ${{ steps.size.outcome }}
-          TODO: ${{ steps.todo.outcome }}
-          DOCS: ${{ steps.docs.outcome }}
         run: |
-          details() {
-            echo "<details><summary>$1</summary>"
-            echo
-            echo '```'
-            sed 's/\x1b\[[0-9;]*m//g' "reports/analysis/$2" 2>/dev/null | tail -n 60
-            echo '```'
-            echo
-            echo "</details>"
+          section() {
+            if [ -f "$RUNNER_TEMP/$2" ]; then
+              echo ""
+              echo "<details><summary>$1</summary>"
+              echo ""
+              echo '```'
+              sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/$2" | tail -n 40
+              echo '```'
+              echo "</details>"
+            fi
           }
           {
             echo "## Analysis (report-only)"
-            echo
+            echo ""
             echo "| Check | Outcome |"
             echo "| --- | --- |"
             echo "| Unused code and dependencies (knip) | $KNIP |"
             echo "| Duplicate code (jscpd) | $DUP |"
-            echo "| Production build | $BUILD (${BUILD_SECONDS:-?}s) |"
-            echo "| Bundle size (size-limit) | $SIZE |"
-            echo "| Tech debt markers | $TODO |"
+            echo "| Tech debt markers | $TODO_REPORT |"
             echo "| API docs (TypeDoc) | $DOCS |"
-            echo
-            echo "**Build duration:** ${BUILD_SECONDS:-unknown} seconds for \`npm run build\`."
-            echo
-            grep -h "Tech debt markers:" reports/analysis/todo.txt 2>/dev/null || true
-            echo
-            details "knip" knip.txt
-            details "jscpd" dup.txt
-            details "size-limit" size.txt
-            details "Tech debt markers" todo.txt
+            echo "| Build | $BUILD in ${BUILD_SECONDS:-?}s |"
+            echo "| Bundle size (size-limit) | $SIZE |"
+            section "knip output" knip.txt
+            section "jscpd output" dup.txt
+            section "Tech debt markers" todo.txt
+            section "Bundle size" size.txt
           } >> "$GITHUB_STEP_SUMMARY"

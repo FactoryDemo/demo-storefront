@@ -2,13 +2,12 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3000;
 const BASE_URL = `http://localhost:${PORT}`;
-const isCi = Boolean(process.env.CI);
+const IS_CI = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: "e2e",
-  fullyParallel: true,
-  forbidOnly: isCi,
-  reporter: isCi
+  forbidOnly: IS_CI,
+  reporter: IS_CI
     ? [["github"], ["html", { open: "never" }]]
     : [["list"], ["html", { open: "never" }]],
   use: {
@@ -19,7 +18,7 @@ export default defineConfig({
   webServer: {
     command: "npm run build && npm run start",
     url: `${BASE_URL}/api/health`,
-    reuseExistingServer: !isCi,
-    timeout: 240_000,
+    reuseExistingServer: !IS_CI,
+    timeout: 180_000,
   },
 });

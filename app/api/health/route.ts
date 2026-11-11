@@ -7,7 +7,10 @@ export const dynamic = "force-dynamic";
 const ROUTE = "/api/health";
 
 export const GET = withTelemetry(ROUTE, () => {
-  logger.info("health check", { route: ROUTE, status: "ok" });
+  logger.info("health check", {
+    route: ROUTE,
+    uptimeSeconds: Math.round(process.uptime()),
+  });
   recordHealthCheck();
   return NextResponse.json({ status: "ok" });
 });

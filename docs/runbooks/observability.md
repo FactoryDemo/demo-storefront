@@ -14,7 +14,7 @@ telemetry is wired. None of this is needed to run the app locally.
 | Metrics | Grafana Cloud Metrics (Prometheus) | Dashboard **Bean & Byte storefront** (`/d/bean-and-byte`) |
 | Profiles | Grafana Cloud Profiles (Pyroscope) | Same dashboard, or Explore > Profiles, service `bean-and-byte` |
 | Deploys | GitHub deployments, Grafana and PostHog annotations | Repo **Deployments** tab; markers on the dashboard |
-| Logs | Vercel function logs | JSON lines with `traceId`, from `server/logger.ts` |
+| Logs | Vercel function logs | JSON lines from `server/logger.ts` |
 
 Every event, error, metric series, and profile carries the repo
 (`appRepo`, or the `job` label such as `demo-storefront/bean-and-byte`), the
@@ -32,8 +32,8 @@ short commit, and the environment (`production`, `preview`, or
 2. **Open the dashboard.** A spike that starts at a deploy marker points at
    that deploy. `Server errors` above zero means an API route threw; the
    same error is in PostHog with its stack and session.
-3. **Follow one request.** Copy the `traceId` from a Vercel log line into
-   Grafana Explore (Tempo) to see the whole request.
+3. **Follow one request.** Copy the `traceId` from the PostHog exception
+   into Grafana Explore (Tempo) to see the whole request.
 4. **Slow, not broken?** Open the CPU profile panel for the time range.
 5. **Roll back** from the Vercel dashboard (Instant Rollback) if the last
    deploy is the cause, then fix forward on a branch.

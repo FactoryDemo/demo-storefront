@@ -8,5 +8,5 @@
 
 ## Tests
 
-<!-- Which tests cover this change, and which checks you ran
+<!-- Which tests cover this change, and the commands you ran
 (npm test, npm run typecheck, npm run lint, npm run format:check). -->

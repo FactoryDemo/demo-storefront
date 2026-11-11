@@ -1,18 +1,7 @@
 {
-  "path": ["."],
-  "format": ["typescript", "tsx", "javascript"],
-  "ignore": [
-    "**/node_modules/**",
-    "**/.next/**",
-    "**/coverage/**",
-    "**/docs/api/**",
-    "**/playwright-report/**",
-    "**/*.d.ts"
-  ],
-  "gitignore": true,
-  "minLines": 5,
   "minTokens": 50,
-  "threshold": 5,
-  "reporters": ["console"],
-  "absolute": false
+  "minLines": 5,
+  "format": ["typescript", "tsx", "javascript"],
+  "ignore": ["**/node_modules/**", "**/.next/**"],
+  "reporters": ["console"]
 }

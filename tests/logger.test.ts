@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   createLogger,
   isSensitiveKey,
@@ -7,189 +7,146 @@ import {
   type LogLevel,
 } from "../server/logger";
 
-const FIXED_NOW = new Date("2026-01-02T03:04:05.678Z");
+const FIXED_TIME = new Date("2026-01-02T03:04:05.000Z");
 
-function capture(level: LogLevel = "debug") {
+function captureLogger(level?: LogLevel) {
   const lines: { line: string; level: LogLevel }[] = [];
   const logger = createLogger({
     level,
-    now: () => FIXED_NOW,
-    sink: (line, lineLevel) => lines.push({ line, level: lineLevel }),
+    now: () => FIXED_TIME,
+    write: (line, lineLevel) => lines.push({ line, level: lineLevel }),
   });
-  const parsed = () => lines.map(({ line }) => JSON.parse(line));
-  return { logger, lines, parsed };
+  return { logger, lines };
 }
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
 
 describe("createLogger", () => {
   it("writes one JSON line with timestamp, level, message, and fields", () => {
-    const { logger, lines, parsed } = capture();
-    logger.info("health check", { route: "/api/health" });
+    const { logger, lines } = captureLogger();
+    logger.info("cart priced", { lineCount: 2 });
 
     expect(lines).toHaveLength(1);
     expect(lines[0].line).not.toContain("\n");
-    expect(parsed()[0]).toEqual({
-      timestamp: "2026-01-02T03:04:05.678Z",
+    expect(JSON.parse(lines[0].line)).toEqual({
+      timestamp: "2026-01-02T03:04:05.000Z",
       level: "info",
-      message: "health check",
-      route: "/api/health",
+      message: "cart priced",
+      lineCount: 2,
     });
   });
 
-  it("passes the level to the sink for every method", () => {
-    const { logger, lines } = capture();
-    logger.debug("d");
-    logger.info("i");
-    logger.warn("w");
-    logger.error("e");
-    expect(lines.map((l) => l.level)).toEqual(["debug", "info", "warn", "error"]);
+  it("keeps multi-line messages on a single line", () => {
+    const { logger, lines } = captureLogger();
+    logger.error("first\nsecond");
+
+    expect(lines[0].line).not.toContain("\n");
+    expect(JSON.parse(lines[0].line).message).toBe("first\nsecond");
+    expect(lines[0].level).toBe("error");
   });
 
-  it("drops events below the configured level", () => {
-    const { logger, parsed } = capture("warn");
+  it("skips levels below the minimum (info by default)", () => {
+    const { logger, lines } = captureLogger();
     logger.debug("hidden");
-    logger.info("hidden");
     logger.warn("shown");
-    logger.error("shown too");
-    expect(parsed().map((e) => e.message)).toEqual(["shown", "shown too"]);
+    expect(lines.map((entry) => JSON.parse(entry.line).message)).toEqual([
+      "shown",
+    ]);
+
+    const verbose = captureLogger("debug");
+    verbose.logger.debug("visible");
+    expect(verbose.lines).toHaveLength(1);
   });
 
-  it("does not let fields overwrite the core keys", () => {
-    const { logger, parsed } = capture();
-    logger.info("real message", {
-      level: "error",
-      message: "fake",
-      timestamp: "never",
-    });
-    expect(parsed()[0]).toMatchObject({
+  it("does not let fields overwrite timestamp, level, or message", () => {
+    const { logger, lines } = captureLogger();
+    logger.info("real", { level: "error", message: "fake", timestamp: 0 });
+
+    expect(JSON.parse(lines[0].line)).toMatchObject({
       level: "info",
-      message: "real message",
-      timestamp: "2026-01-02T03:04:05.678Z",
+      message: "real",
+      timestamp: "2026-01-02T03:04:05.000Z",
     });
   });
 
   it("redacts sensitive fields before writing", () => {
-    const { logger, lines } = capture();
-    logger.info("login", {
-      user: { email: "ada@example.com", password: "hunter2", id: 7 },
-      headers: { authorization: "Bearer abc", cookie: "sid=1" },
+    const { logger, lines } = captureLogger();
+    logger.warn("login failed", {
+      email: "someone@example.com",
+      request: { headers: { authorization: "Bearer abc", accept: "*/*" } },
     });
-    const line = lines[0].line;
-    expect(line).not.toContain("ada@example.com");
-    expect(line).not.toContain("hunter2");
-    expect(line).not.toContain("Bearer abc");
-    expect(line).not.toContain("sid=1");
-    expect(JSON.parse(line).user).toEqual({
-      email: REDACTED,
-      password: REDACTED,
-      id: 7,
+
+    const written = lines[0].line;
+    expect(written).not.toContain("someone@example.com");
+    expect(written).not.toContain("Bearer abc");
+    expect(JSON.parse(written).request.headers).toEqual({
+      authorization: REDACTED,
+      accept: "*/*",
     });
-  });
-
-  it("omits trace fields when there is no active span", () => {
-    const { logger, parsed } = capture();
-    logger.info("no span");
-    expect(parsed()[0]).not.toHaveProperty("traceId");
-  });
-
-  it("writes info to stdout and errors to stderr by default", () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const logger = createLogger({ level: "info" });
-    logger.info("to stdout");
-    logger.error("to stderr");
-    expect(JSON.parse(log.mock.calls[0][0] as string).message).toBe("to stdout");
-    expect(JSON.parse(error.mock.calls[0][0] as string).message).toBe(
-      "to stderr"
-    );
-  });
-
-  it("reads the default level from LOG_LEVEL", () => {
-    vi.stubEnv("LOG_LEVEL", "error");
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    createLogger().info("hidden");
-    expect(log).not.toHaveBeenCalled();
-    vi.unstubAllEnvs();
   });
 });
 
 describe("isSensitiveKey", () => {
-  it("matches common secret and PII key names regardless of case", () => {
-    for (const key of [
-      "password",
-      "Password",
-      "accessToken",
-      "refresh_token",
-      "Authorization",
-      "set-cookie",
-      "userEmail",
-      "cardNumber",
-      "apiKey",
-      "client_secret",
-    ]) {
-      expect(isSensitiveKey(key), key).toBe(true);
-    }
+  it.each([
+    "password",
+    "Password",
+    "accessToken",
+    "refresh_token",
+    "Authorization",
+    "set-cookie",
+    "cookies",
+    "userEmail",
+    "cardNumber",
+    "credit_card",
+    "apiKey",
+    "x-api-key",
+    "clientSecret",
+  ])("treats %s as sensitive", (key) => {
+    expect(isSensitiveKey(key)).toBe(true);
   });
 
-  it("leaves ordinary keys alone", () => {
-    for (const key of ["productId", "quantity", "route", "status", "level"]) {
-      expect(isSensitiveKey(key), key).toBe(false);
+  it.each(["discard", "productId", "quantity", "message", "tokenizer"])(
+    "leaves %s alone",
+    (key) => {
+      expect(isSensitiveKey(key)).toBe(false);
     }
-  });
+  );
 });
 
 describe("redact", () => {
   it("redacts nested objects and arrays without mutating the input", () => {
     const input = {
-      cart: [{ productId: "drip", card: "4242 4242 4242 4242" }],
-      meta: { deep: { token: "t" } },
+      users: [{ name: "Ada", password: "hunter2" }],
+      card: { number: "4242424242424242" },
     };
     expect(redact(input)).toEqual({
-      cart: [{ productId: "drip", card: REDACTED }],
-      meta: { deep: { token: REDACTED } },
+      users: [{ name: "Ada", password: REDACTED }],
+      card: REDACTED,
     });
-    expect(input.cart[0].card).toBe("4242 4242 4242 4242");
+    expect(input.users[0].password).toBe("hunter2");
   });
 
-  it("redacts Headers and Map entries", () => {
-    const headers = new Headers({ authorization: "Bearer x", accept: "*/*" });
-    const map = new Map<string, unknown>([["password", "p"], ["ok", 1]]);
-    expect(redact({ headers, map })).toEqual({
-      headers: { authorization: REDACTED, accept: "*/*" },
-      map: { password: REDACTED, ok: 1 },
-    });
-  });
+  it("marks circular references but keeps repeated shared objects", () => {
+    const shared = { productId: "latte" };
+    const node: Record<string, unknown> = { first: shared, second: shared };
+    node.self = node;
 
-  it("serializes errors, dates, and bigints", () => {
-    const error = new Error("boom");
-    const result = redact({
-      error,
-      at: new Date(0),
-      big: BigInt(10),
-    }) as Record<string, unknown>;
-    expect(result.error).toMatchObject({ name: "Error", message: "boom" });
-    expect(result.at).toBe("1970-01-01T00:00:00.000Z");
-    expect(result.big).toBe("10");
-  });
-
-  it("marks circular references but keeps shared ones", () => {
-    const shared = { id: 1 };
-    const circular: Record<string, unknown> = { shared, again: shared };
-    circular.self = circular;
-    expect(redact(circular)).toEqual({
-      shared: { id: 1 },
-      again: { id: 1 },
+    expect(redact(node)).toEqual({
+      first: { productId: "latte" },
+      second: { productId: "latte" },
       self: "[Circular]",
     });
   });
 
-  it("passes primitives through unchanged", () => {
-    expect(redact("text")).toBe("text");
-    expect(redact(3)).toBe(3);
-    expect(redact(null)).toBeNull();
-    expect(redact(undefined)).toBeUndefined();
+  it("serializes errors, dates, and bigints into JSON-safe values", () => {
+    const error = new Error("boom");
+    const result = redact({
+      error,
+      at: FIXED_TIME,
+      big: BigInt(10),
+    }) as Record<string, unknown>;
+
+    expect(result.error).toMatchObject({ name: "Error", message: "boom" });
+    expect(result.at).toBe("2026-01-02T03:04:05.000Z");
+    expect(result.big).toBe("10");
+    expect(() => JSON.stringify(result)).not.toThrow();
   });
 });

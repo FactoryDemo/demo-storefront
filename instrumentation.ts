@@ -4,7 +4,7 @@ import { SERVICE_NAME } from "./server/release";
 /**
  * Called once by Next.js when the server starts. Telemetry is exported only
  * when its environment variables are set (see .env.example); without them,
- * tracing still runs in-process and log lines carry the trace id.
+ * nothing leaves the process.
  */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs") {

@@ -10,12 +10,10 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
-      # @vercel/otel's OpenTelemetry deps require @opentelemetry/api below 1.10.
-      - dependency-name: "@opentelemetry/api"
-        versions: [">=1.10.0"]
     groups:
-      npm-dependencies:
-        patterns: ["*"]
+      npm:
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: /
@@ -29,4 +27,5 @@ updates:
         update-types: ["version-update:semver-major"]
     groups:
       github-actions:
-        patterns: ["*"]
+        patterns:
+          - "*"

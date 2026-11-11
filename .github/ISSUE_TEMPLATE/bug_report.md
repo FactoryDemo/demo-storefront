@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Something in the storefront or pricing core behaves incorrectly
+about: Report something that behaves incorrectly
 title: ""
 labels: bug
 assignees: ""
@@ -12,20 +12,19 @@ A clear description of the bug.
 
 ## Steps to reproduce
 
-1. Start the app with `npm run dev` and open http://localhost:3000
+1. Run `npm run dev` and open http://localhost:3000
 2. ...
 
 ## Expected behavior
 
-What you expected to happen. For pricing bugs, include the cart contents
-and the expected total in integer cents.
-
-## Actual behavior
-
-What happened instead, including any error output.
+What you expected to happen instead.
 
 ## Environment
 
 - Node version:
 - Browser (if UI-related):
 - Commit or branch:
+
+## Additional context
+
+Cart contents, prices involved (in cents), screenshots, or logs.

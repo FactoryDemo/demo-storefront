@@ -22,7 +22,9 @@ describe("withTelemetry", () => {
   });
 
   it("turns an unexpected error into a logged 500", async () => {
-    const stderr = vi.spyOn(console, "error").mockImplementation(() => {});
+    const stderr = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
     const handler = withTelemetry("/api/test", async () => {
       throw new Error("boom");
     });
@@ -33,7 +35,7 @@ describe("withTelemetry", () => {
     expect(await response.json()).toEqual({
       errors: ["Something went wrong on our side. Try again."],
     });
-    const line = JSON.parse(stderr.mock.calls[0][0] as string);
+    const line = JSON.parse(String(stderr.mock.calls[0][0]));
     expect(line).toMatchObject({
       level: "error",
       message: "unhandled error",
@@ -46,7 +48,7 @@ describe("withTelemetry", () => {
 
 describe("without exporters configured", () => {
   it("records metrics and errors without throwing or sending anything", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     expect(() => {
       recordHealthCheck();
       recordOrderRejected("validation");

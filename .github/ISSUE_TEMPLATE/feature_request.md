@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest a new capability or change to the storefront
+about: Suggest a new capability or improvement
 title: ""
 labels: enhancement
 assignees: ""
@@ -8,18 +8,17 @@ assignees: ""
 
 ## Problem
 
-What problem does this solve, and who runs into it?
+What problem does this solve, and for whom?
 
 ## Proposed solution
 
-Describe the change. Note whether it affects pricing logic in `lib/`, the
-UI in `components/` or `app/`, or both.
-
-## Acceptance criteria
-
-- [ ] ...
-- [ ] Tests in `tests/` cover the new behavior, including edge cases
+Describe the change you would like. For pricing changes, note how totals
+should be computed (integer cents) and which edge cases matter.
 
 ## Alternatives considered
 
-Other approaches you thought about, if any.
+Other approaches you thought about.
+
+## Additional context
+
+Mockups, examples, or links.

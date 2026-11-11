@@ -1,92 +1,73 @@
 # Runbook: local development
 
-How to get Bean & Byte running locally and fix the failures people hit
-most often.
-
 ## Setup
 
-1. Use Node.js 20 or newer (CI runs Node 20).
-2. Install exact dependencies from the lockfile:
+1. Use Node.js 20 or newer (`node -v`).
+2. Install exactly what the lockfile pins: `npm ci`. This also installs the
+   Husky pre-commit hook.
+3. Start the dev server: `npm run dev`, then open http://localhost:3000.
+4. Confirm the server is healthy:
 
    ```bash
-   npm ci
+   curl -i http://localhost:3000/api/health
+   # HTTP/1.1 200 OK
+   # {"status":"ok"}
    ```
 
-   This also installs the Husky pre-commit hook, which runs lint-staged
-   (ESLint `--fix` and Prettier) on staged files.
+   The server log shows one JSON line per check, for example
+   `{"timestamp":"...","level":"info","message":"health check",...}`.
 
-3. Start the dev server and open http://localhost:3000:
-
-   ```bash
-   npm run dev
-   ```
-
-No environment variables, accounts, or external services are needed.
+No accounts, credentials, or environment variables are required.
 Telemetry (PostHog, Grafana Cloud) is optional and off unless its variables
 are set; see `.env.example` and `docs/runbooks/observability.md`.
-
-## Check that the app is healthy
-
-```bash
-curl -i http://localhost:3000/api/health
-```
-
-Expect `HTTP/1.1 200 OK` and the body `{"status":"ok"}`. The server log
-shows a matching JSON line:
-
-```json
-{"timestamp":"...","level":"info","message":"health check","traceId":"...","spanId":"...","route":"/api/health","status":"ok"}
-```
-
-If curl cannot connect, the server is not running or is on another port.
 
 ## Common failures
 
 ### Port 3000 is already in use
 
-Symptom: `Error: listen EADDRINUSE: address already in use :::3000`.
+`npm run dev` or `npm run start` fails with `EADDRINUSE`, or Next.js picks
+another port.
 
-1. Find the process: `lsof -i :3000`.
-2. Stop it if it is a stale dev server (`kill <pid>`), or run on another
-   port: `npm run dev -- -p 3001`.
-
-Playwright (`npm run test:e2e`) expects port 3000. Locally it reuses a
-server that is already running there, so make sure that server is this app.
+- Find the process: `lsof -i :3000`.
+- Stop it (`kill <pid>`), or run on another port: `npm run dev -- -p 3001`.
+- `npm run test:e2e` reuses a server already on port 3000 outside CI. If that
+  server is stale, stop it before running the end-to-end tests.
 
 ### Stale `.next` build output
 
-Symptoms: `Cannot find module './NNN.js'`, missing chunk errors, old styles
-or pages after switching branches, or a production server that serves an
-older build.
+Symptoms: old pages after switching branches, `Cannot find module` errors
+under `.next`, or type errors in `.next/types` for files that no longer
+exist.
 
-1. Stop the dev or production server.
-2. Delete the build cache: `rm -rf .next`.
-3. Restart with `npm run dev`, or rebuild with `npm run build`.
+```bash
+rm -rf .next
+npm run build   # or npm run dev
+```
 
 ### Lockfile drift
 
-Symptom: `npm ci` fails with "`npm ci` can only install packages when your
-package.json and package-lock.json are in sync", or the app behaves
-differently than in CI.
+`npm ci` fails with "package.json and package-lock.json are not in sync", or
+tools behave differently from CI.
 
-1. If you changed dependencies on purpose, run `npm install` to update
-   `package-lock.json`, then commit both files together.
-2. If you did not, restore both files from `main` and run `npm ci` again.
-3. Never edit `package-lock.json` by hand.
+- If you changed `package.json`, run `npm install` to update
+  `package-lock.json` and commit both files together.
+- If you did not, restore the lockfile from `main` and run `npm ci` again.
+- Never delete `package-lock.json` to make an install pass.
 
 ### Playwright cannot find a browser
 
-Symptom: `Executable doesn't exist` when running `npm run test:e2e`.
-Install Chromium once with `npx playwright install chromium`.
+`npm run test:e2e` fails with "Executable doesn't exist". Install Chromium
+once: `npx playwright install chromium` (add `--with-deps` on Linux).
 
-### Pre-commit hook rejects a commit
+### The pre-commit hook does not run
 
-The hook runs ESLint `--fix` and Prettier on staged files only. Run
-`npm run lint` and `npm run format` to see and fix the problem, stage the
-result, and commit again.
+Run `npm run prepare` to reinstall the Husky hook. The hook only runs
+lint-staged (Prettier and ESLint fixes on staged files); run the test suite
+yourself before pushing.
 
-### `npm run test:ci` fails on coverage
+## Checking health
 
-Coverage of `lib/` must stay at or above the thresholds in
-`vitest.config.ts`. Add tests for the new code rather than lowering them.
-Open `coverage/index.html` to see uncovered lines.
+- Locally: `curl http://localhost:3000/api/health` must return `200` with
+  `{"status":"ok"}`.
+- In CI: the E2E workflow asserts the same response against a production
+  build, and the DAST workflow waits for it before scanning.

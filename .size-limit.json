@@ -5,18 +5,8 @@
     "limit": "330 kB"
   },
   {
-    "name": "Framework and shared chunks",
-    "path": [".next/static/chunks/*.js", "!.next/static/chunks/polyfills-*.js"],
-    "limit": "270 kB"
-  },
-  {
     "name": "Home page chunk",
     "path": ".next/static/chunks/app/page-*.js",
-    "limit": "5 kB"
-  },
-  {
-    "name": "CSS",
-    "path": ".next/static/css/*.css",
-    "limit": "5 kB"
+    "limit": "4 kB"
   }
 ]

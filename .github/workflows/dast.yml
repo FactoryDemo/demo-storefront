@@ -20,16 +20,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Start the app and wait for /api/health
+      - name: Start the app
         run: |
-          npm run start > next-start.log 2>&1 &
+          npm run start > "$RUNNER_TEMP/next.log" 2>&1 &
           for attempt in $(seq 1 30); do
-            if curl -fsS http://localhost:3000/api/health; then
+            if curl --silent --fail http://localhost:3000/api/health; then
               exit 0
             fi
             sleep 2
           done
-          cat next-start.log
+          cat "$RUNNER_TEMP/next.log"
           exit 1
       - name: OWASP ZAP baseline scan
         uses: zaproxy/action-baseline@v0.15.0
@@ -37,4 +37,3 @@ jobs:
           target: http://localhost:3000
           fail_action: false
           allow_issue_writing: false
-          artifact_name: zap-baseline-report

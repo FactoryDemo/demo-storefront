@@ -1,159 +1,139 @@
-import { isSpanContextValid, trace } from "@opentelemetry/api";
-
 export type LogLevel = "debug" | "info" | "warn" | "error";
-type LogFields = Record<string, unknown>;
-type LogSink = (line: string, level: LogLevel) => void;
+
+export type LogFields = Record<string, unknown>;
+
+/** Receives one serialized JSON log line (no trailing newline). */
+export type LogWriter = (line: string, level: LogLevel) => void;
 
 export type Logger = {
-  debug: (message: string, fields?: LogFields) => void;
-  info: (message: string, fields?: LogFields) => void;
-  warn: (message: string, fields?: LogFields) => void;
-  error: (message: string, fields?: LogFields) => void;
+  debug(message: string, fields?: LogFields): void;
+  info(message: string, fields?: LogFields): void;
+  warn(message: string, fields?: LogFields): void;
+  error(message: string, fields?: LogFields): void;
 };
 
 export type LoggerOptions = {
-  /** Lowest level that is written. Defaults to LOG_LEVEL, then "info". */
+  /** Lowest level that is written. Defaults to "info". */
   level?: LogLevel;
-  /** Where each JSON line goes. Defaults to stdout (stderr for warn/error). */
-  sink?: LogSink;
+  write?: LogWriter;
   now?: () => Date;
 };
 
 export const REDACTED = "[REDACTED]";
 
-const SENSITIVE_KEY_PATTERN =
-  /password|passwd|secret|token|api[-_]?key|authorization|cookie|session|email|card|cvv|ssn/i;
-
-const LEVEL_ORDER: Record<LogLevel, number> = {
+const LEVEL_RANK: Record<LogLevel, number> = {
   debug: 10,
   info: 20,
   warn: 30,
   error: 40,
 };
 
-const MAX_DEPTH = 8;
-
-export function isSensitiveKey(key: string): boolean {
-  return SENSITIVE_KEY_PATTERN.test(key);
-}
+/** Words that mark a field as sensitive wherever they appear in its key. */
+const SENSITIVE_KEY_WORDS = new Set([
+  "password",
+  "passwd",
+  "secret",
+  "token",
+  "authorization",
+  "cookie",
+  "email",
+  "card",
+  "cvv",
+  "ssn",
+  "apikey",
+]);
 
 /**
- * Deep-copies a value for logging, replacing the value of every key that
- * looks sensitive (password, token, authorization, cookie, email, card, ...)
- * with REDACTED. Errors, Dates, Maps, and Headers become plain JSON values.
+ * True when a key names sensitive data. Keys are split into words
+ * (camelCase, snake_case, kebab-case), so `accessToken`, `user_email`, and
+ * `set-cookie` match while `discard` does not. Adjacent word pairs are
+ * also checked so `apiKey` and `x-api-key` match "apikey".
  */
-export function redact(value: unknown): unknown {
-  return redactValue(value, new WeakSet<object>(), 0);
+export function isSensitiveKey(key: string): boolean {
+  const words = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 0);
+  const pairs = words.slice(1).map((word, index) => words[index] + word);
+  return [...words, ...pairs].some(
+    (word) =>
+      SENSITIVE_KEY_WORDS.has(word) ||
+      SENSITIVE_KEY_WORDS.has(word.replace(/s$/, ""))
+  );
 }
 
-function redactValue(
-  value: unknown,
-  ancestors: WeakSet<object>,
-  depth: number
-): unknown {
+/** Deep copy of `value` with sensitive keys replaced by REDACTED. */
+export function redact(value: unknown): unknown {
+  return redactValue(value, new Set());
+}
+
+function redactValue(value: unknown, ancestors: Set<object>): unknown {
+  if (value instanceof Error) {
+    return { name: value.name, message: value.message, stack: value.stack };
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
   if (typeof value === "bigint") {
     return value.toString();
   }
   if (value === null || typeof value !== "object") {
     return value;
   }
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (value instanceof Error) {
-    return { name: value.name, message: value.message, stack: value.stack };
-  }
   if (ancestors.has(value)) {
     return "[Circular]";
   }
-  if (depth >= MAX_DEPTH) {
-    return "[Truncated]";
-  }
   ancestors.add(value);
-  const result = Array.isArray(value)
-    ? value.map((item) => redactValue(item, ancestors, depth + 1))
-    : redactEntries(toEntries(value), ancestors, depth);
+  const copy = Array.isArray(value)
+    ? value.map((item) => redactValue(item, ancestors))
+    : redactEntries(value as Record<string, unknown>, ancestors);
   ancestors.delete(value);
-  return result;
-}
-
-function toEntries(value: object): [string, unknown][] {
-  if (
-    value instanceof Map ||
-    (typeof Headers !== "undefined" && value instanceof Headers)
-  ) {
-    return Array.from(
-      value as Iterable<[unknown, unknown]>,
-      ([key, entry]): [string, unknown] => [String(key), entry]
-    );
-  }
-  return Object.entries(value);
+  return copy;
 }
 
 function redactEntries(
-  entries: [string, unknown][],
-  ancestors: WeakSet<object>,
-  depth: number
-): LogFields {
-  const result: LogFields = {};
-  for (const [key, entry] of entries) {
-    result[key] = isSensitiveKey(key)
-      ? REDACTED
-      : redactValue(entry, ancestors, depth + 1);
+  record: Record<string, unknown>,
+  ancestors: Set<object>
+): Record<string, unknown> {
+  const copy: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(record)) {
+    copy[key] = isSensitiveKey(key) ? REDACTED : redactValue(item, ancestors);
   }
-  return result;
+  return copy;
 }
 
-function traceContext(): LogFields {
-  const spanContext = trace.getActiveSpan()?.spanContext();
-  if (!spanContext || !isSpanContextValid(spanContext)) {
-    return {};
-  }
-  return { traceId: spanContext.traceId, spanId: spanContext.spanId };
-}
-
-function resolveLevel(value: string | undefined): LogLevel {
-  const candidate = value?.toLowerCase();
-  return candidate !== undefined && candidate in LEVEL_ORDER
-    ? (candidate as LogLevel)
-    : "info";
-}
-
-function defaultSink(line: string, level: LogLevel): void {
-  if (level === "warn" || level === "error") {
-    console.error(line);
-  } else {
-    console.log(line);
-  }
+function writeToStdio(line: string, level: LogLevel): void {
+  const stream =
+    level === "warn" || level === "error" ? process.stderr : process.stdout;
+  stream.write(`${line}\n`);
 }
 
 /**
- * Creates a logger that writes one JSON object per line with `timestamp`,
- * `level`, `message`, the active OpenTelemetry `traceId`/`spanId` when there
- * is one, and the redacted fields. Fields cannot overwrite those keys.
+ * A logger that writes one JSON object per line with `timestamp`, `level`,
+ * `message`, and any extra fields, after redacting sensitive keys.
  */
 export function createLogger(options: LoggerOptions = {}): Logger {
-  const minLevel = options.level ?? resolveLevel(process.env.LOG_LEVEL);
-  const sink = options.sink ?? defaultSink;
+  const minimumRank = LEVEL_RANK[options.level ?? "info"];
+  const write = options.write ?? writeToStdio;
   const now = options.now ?? (() => new Date());
 
   function log(level: LogLevel, message: string, fields: LogFields = {}) {
-    if (LEVEL_ORDER[level] < LEVEL_ORDER[minLevel]) {
+    if (LEVEL_RANK[level] < minimumRank) {
       return;
     }
     const entry: LogFields = {
       timestamp: now().toISOString(),
       level,
       message,
-      ...traceContext(),
     };
-    const redacted = redact(fields) as LogFields;
-    for (const [key, value] of Object.entries(redacted)) {
+    const safeFields = redactEntries(fields, new Set());
+    for (const [key, value] of Object.entries(safeFields)) {
       if (!(key in entry)) {
         entry[key] = value;
       }
     }
-    sink(JSON.stringify(entry), level);
+    write(JSON.stringify(entry), level);
   }
 
   return {
@@ -164,4 +144,4 @@ export function createLogger(options: LoggerOptions = {}): Logger {
   };
 }
 
-export const logger: Logger = createLogger();
+export const logger = createLogger();

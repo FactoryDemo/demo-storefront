@@ -8,7 +8,7 @@ out/
 .vscode/
 .idea/
 
-# Generated test reports, coverage, and API docs
+# Test, coverage, and docs output
 coverage/
 reports/
 playwright-report/

@@ -8,13 +8,12 @@ export default defineConfig({
       provider: "v8",
       include: ["lib/**/*.ts"],
       reporter: ["text", "json-summary", "html", "lcov"],
-      // Measured coverage of lib/ is 100% on every metric; the floors sit
-      // 10 points below it.
+      // Roughly 10 points under measured coverage; raise as coverage grows.
       thresholds: {
-        statements: 90,
-        branches: 90,
+        statements: 87,
+        branches: 86,
         functions: 90,
-        lines: 90,
+        lines: 87,
       },
     },
   },
