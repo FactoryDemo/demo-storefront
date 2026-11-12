@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-11-12T18:54:58Z",
+  "commitHash": "838675d3faf02f07fbc7a486afc232041f2641ed",
+  "branch": "main",
+  "pageCount": 31,
+  "topLevelSections": [
+    "overview",
+    "by-the-numbers",
+    "lore",
+    "how-to-contribute",
+    "features",
+    "api",
+    "deployment",
+    "security",
+    "how-to-monitor",
+    "reference"
+  ],
+  "pageOrder": [
+    "overview/index.md",
+    "overview/architecture.md",
+    "overview/getting-started.md",
+    "overview/glossary.md",
+    "by-the-numbers.md",
+    "lore.md",
+    "how-to-contribute/index.md",
+    "how-to-contribute/development-workflow.md",
+    "how-to-contribute/testing.md",
+    "how-to-contribute/debugging.md",
+    "how-to-contribute/patterns-and-conventions.md",
+    "how-to-contribute/tooling.md",
+    "how-to-contribute/wiki-refresh.md",
+    "features/index.md",
+    "features/catalog.md",
+    "features/cart.md",
+    "features/pricing.md",
+    "features/checkout.md",
+    "features/analytics.md",
+    "api/index.md",
+    "deployment.md",
+    "security.md",
+    "how-to-monitor/index.md",
+    "how-to-monitor/logging.md",
+    "how-to-monitor/metrics.md",
+    "how-to-monitor/tracing.md",
+    "how-to-monitor/alerting.md",
+    "reference/index.md",
+    "reference/configuration.md",
+    "reference/data-models.md",
+    "reference/dependencies.md"
+  ],
+  "videoOverview": {
+    "status": "failed",
+    "warnings": [
+      "Video generation unavailable: HyperFrames 0.4.44 doctor reported missing FFmpeg and FFprobe. The command exited 0, but both required capability checks failed; no video was rendered."
+    ]
+  }
+}
