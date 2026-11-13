@@ -36,3 +36,7 @@ Sensitive-key redaction is not a substitute for avoiding personal data: free-tex
 Use two spaces, semicolons, double quotes, and an 80-column print width (`.prettierrc`). Markdown is excluded by `.prettierignore`, so formatting checks alone do not validate wiki prose or links.
 
 `AGENTS.md` requests lowercase imperative commit subjects without a prefix and branches named `feature/<slug>`. Follow the [Development workflow](development-workflow.md) and run the [Testing](testing.md) checks before requesting review.
+
+## Current-code implementations
+
+Build each feature from the request and the current code (`AGENTS.md`). Do not read, reuse, or revert earlier attempts from Git history, including reverted commits, closed or merged PRs, and `Rehearsal-*` commits. Do not run `git show`, `git log -p`, or `git revert` on those attempts. This applies to implementation work; an old attempt is not a specification for a new change.
