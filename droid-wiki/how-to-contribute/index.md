@@ -6,6 +6,8 @@ Make small, typed changes with tests around business-rule boundaries. `AGENTS.md
 
 Read [Architecture](../overview/architecture.md) and the affected [Feature](../features/index.md). Keep pure rules in `lib/`, UI in `app/` and `components/`, and server I/O in `server/`. Prices and totals cross boundaries as cents.
 
+Use the request and current code as the basis for implementation. `AGENTS.md` prohibits reading, reusing, or reverting earlier attempts from Git history, including reverted commits, closed or merged PRs, and `Rehearsal-*` commits. See [Patterns and conventions](patterns-and-conventions.md#current-code-implementations) for the command restrictions.
+
 ## Working checklist
 
 1. Follow [Development workflow](development-workflow.md) for branches, commits, and PRs.

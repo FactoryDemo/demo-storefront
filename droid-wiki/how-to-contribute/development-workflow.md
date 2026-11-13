@@ -8,6 +8,8 @@ Local checks precede a PR; CI and automated review then run independently. These
 
 Use `npm ci`, implement the change with matching `tests/` coverage, then run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run format:check`. Add browser verification when UI behavior changes; see [Testing](testing.md).
 
+Implement from the request and current code, not an earlier attempt. `AGENTS.md` prohibits reading, reusing, or reverting reverted commits, closed or merged PR implementations, and `Rehearsal-*` commits. Do not run `git show`, `git log -p`, or `git revert` on those attempts. See [Patterns and conventions](patterns-and-conventions.md#current-code-implementations).
+
 Opening the PR ends the task. Do not run CI watch/poll commands afterward. If explicitly assigned a failing check, read its results, push the correction to the same PR, and stop again (`AGENTS.md`).
 
 ## Checks and review
