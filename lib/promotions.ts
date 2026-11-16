@@ -11,6 +11,14 @@ export type Promotion = {
 /** Live promo codes. Matching is case-insensitive. */
 export const PROMOTIONS: Promotion[] = [
   {
+    code: "SAVE20",
+    description: "20% off items without a bulk discount",
+    discountCents: (lines) =>
+      Math.round(
+        lines.reduce((sum, line) => sum + line.lineTotalCents, 0) * 0.2
+      ),
+  },
+  {
     code: "SAVE10",
     description: "Launch offer: 10% off items without a bulk discount",
     discountCents: (lines) =>

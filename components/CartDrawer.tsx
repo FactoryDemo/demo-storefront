@@ -10,6 +10,7 @@ import {
   calculateLineTotal,
 } from "../lib/pricing";
 import { getProduct } from "../lib/products";
+import { findPromotion } from "../lib/promotions";
 import type { CartItem } from "../lib/types";
 import { useCart } from "./CartProvider";
 
@@ -100,6 +101,7 @@ export function CartDrawer() {
 
 function PromoCodeForm() {
   const { promoCode, applyPromoCode } = useCart();
+  const promotion = promoCode ? findPromotion(promoCode) : null;
   const [value, setValue] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -129,9 +131,9 @@ function PromoCodeForm() {
       <button type="submit" className="button">
         Apply
       </button>
-      {promoCode && (
+      {promotion && (
         <p className="field-hint" role="status">
-          {promoCode} applied: 10% off items without a bulk discount.
+          {promotion.code} applied: {promotion.description}.
         </p>
       )}
       {message && <p role="alert">{message}</p>}

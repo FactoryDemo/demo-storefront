@@ -134,6 +134,25 @@ describe("pickupLabel", () => {
 });
 
 describe("promo codes on orders", () => {
+  it("normalizes SAVE20 and re-prices merged items without stacking", () => {
+    const result = validateOrderRequest({
+      ...VALID,
+      promoCode: " save20 ",
+      items: [
+        { productId: "espresso", quantity: 1 },
+        { productId: "espresso", quantity: 2 },
+        { productId: "drip", quantity: 1 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.errors.join(", "));
+    }
+    const order = buildOrder(result.request, "BB-SAVE20", new Date(0));
+    expect(order.promoCode).toBe("SAVE20");
+    expect(order.totalCents).toBe(1077); // 797 bulk + 280 promo
+  });
+
   it("normalizes a valid code", () => {
     const result = validateOrderRequest({ ...VALID, promoCode: " save10 " });
     expect(result.ok && result.request.promoCode).toBe("SAVE10");

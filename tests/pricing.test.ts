@@ -81,6 +81,49 @@ describe("formatCurrency", () => {
   });
 });
 
+describe("SAVE20 promo code", () => {
+  it("takes 20% off eligible lines and normalizes the code", () => {
+    const cart = [{ productId: "latte", quantity: 2 }];
+    expect(calculateCartTotal(cart, "SAVE20")).toBe(760);
+    expect(calculateCartTotal(cart, " save20 ")).toBe(760);
+  });
+
+  it("discounts only regular-price lines in a mixed cart", () => {
+    expect(
+      calculateCartTotal(
+        [
+          { productId: "espresso", quantity: 3 },
+          { productId: "drip", quantity: 1 },
+        ],
+        "SAVE20"
+      )
+    ).toBe(1077); // 797 bulk + 280 promo
+  });
+
+  it("re-evaluates eligibility across the bulk threshold", () => {
+    for (const [quantity, expected] of [
+      [2, 472],
+      [3, 797],
+      [4, 1062],
+      [2, 472],
+    ]) {
+      expect(
+        calculateCartTotal([{ productId: "espresso", quantity }], "SAVE20")
+      ).toBe(expected);
+    }
+  });
+
+  it("rounds fractional-cent discounts and leaves empty carts at zero", () => {
+    const promotion = PROMOTIONS.find((entry) => entry.code === "SAVE20");
+    expect(
+      promotion?.discountCents([
+        { productId: "test", quantity: 1, lineTotalCents: 103 },
+      ])
+    ).toBe(21);
+    expect(calculateCartTotal([], "SAVE20")).toBe(0);
+  });
+});
+
 describe("SAVE10 promo code", () => {
   const items: CartItem[] = [{ productId: "latte", quantity: 2 }]; // 950
 
