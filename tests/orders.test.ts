@@ -130,8 +130,29 @@ describe("promo codes", () => {
       "BB-TEST02",
       new Date("2026-01-02T03:04:05.000Z")
     );
-    expect(order.totalCents).toBe(1116);
+    expect(order.totalCents).toBe(1210); // bulk drip: 945; promo espresso: 265
     expect(order.promoCode).toBe("SAVE10");
+  });
+
+  it("keeps bulk pricing after merging repeated products with a promo", () => {
+    const result = validateOrderRequest({
+      ...VALID,
+      items: [
+        { productId: "espresso", quantity: 1 },
+        { productId: "espresso", quantity: 2 },
+      ],
+      promoCode: "SAVE10",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(
+        buildOrder(
+          result.request,
+          "BB-BULK",
+          new Date("2026-01-02T03:04:05.000Z")
+        ).totalCents
+      ).toBe(797);
+    }
   });
 });
 

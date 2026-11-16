@@ -177,7 +177,7 @@ function PromoForm() {
       </button>
       {promoCode && (
         <p className="field-hint" role="status">
-          {promoCode} applied: 10% off your order.
+          {promoCode} applied: 10% off items without a bulk discount.
         </p>
       )}
       {error && (

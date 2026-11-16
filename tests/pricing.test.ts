@@ -67,18 +67,29 @@ describe("calculateCartTotal", () => {
     expect(calculateCartTotal(items, "NOT-A-CODE")).toBe(950);
   });
 
-  it("takes 10% off the whole order with SAVE10", () => {
+  it("applies SAVE10 only to non-bulk lines in a mixed cart", () => {
     const items: CartItem[] = [
       { productId: "drip", quantity: 3 }, // bulk: 945
       { productId: "espresso", quantity: 1 }, // 295
     ];
     expect(calculateCartTotal(items)).toBe(1240);
-    expect(calculateCartTotal(items, "SAVE10")).toBe(1116);
+    expect(calculateCartTotal(items, "SAVE10")).toBe(1210); // 945 + 295 - 30
   });
 
-  it("stacks SAVE10 on top of bulk pricing", () => {
-    const items: CartItem[] = [{ productId: "drip", quantity: 3 }];
-    expect(calculateCartTotal(items, "SAVE10")).toBe(850); // 945 - 95
+  it.each([3, 4, 10])("does not stack SAVE10 on bulk quantity %i", (quantity) => {
+    const items: CartItem[] = [{ productId: "espresso", quantity }];
+    expect(calculateCartTotal(items, "SAVE10")).toBe(
+      calculateCartTotal(items)
+    );
+    if (quantity === 3) {
+      expect(calculateCartTotal(items, "SAVE10")).toBe(797);
+    }
+  });
+
+  it("applies SAVE10 below the bulk threshold", () => {
+    expect(
+      calculateCartTotal([{ productId: "drip", quantity: 2 }], "SAVE10")
+    ).toBe(630);
   });
 
   it("matches SAVE10 case-insensitively and ignores whitespace", () => {
