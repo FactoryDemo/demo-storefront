@@ -8,6 +8,8 @@ Browse 13 products in four categories, add quantities to a saved cart, and place
 
 Buying at least three of one product discounts that line by 10%. Three Drip Coffees cost $9.45; adding one Espresso makes $12.40. The server calculates prices again rather than trusting the browser (`lib/pricing.ts`, `app/api/orders/route.ts`).
 
+Apply `SAVE10` in the cart for 10% off items that do not already have a bulk discount. The same mixed cart becomes $12.10: the bulk-priced coffee stays $9.45, and the Espresso receives a rounded 30-cent discount (`lib/promotions.ts`, `lib/pricing.ts`). See [Pricing](../features/pricing.md) for rounding and eligibility.
+
 ## Start reading
 
 - [Architecture](architecture.md): component boundaries and request flow.
@@ -19,6 +21,6 @@ Buying at least three of one product discounts that line by 10%. Three Drip Coff
 
 ## Scope
 
-The cart persists in localStorage, while only the last order persists in sessionStorage in the current tab (`components/CartProvider.tsx`, `components/lastOrder.ts`). An order URL is not a server-backed receipt lookup.
+Cart quantities persist in localStorage; an applied promo code stays only in React state and resets on reload. Only the last order persists in sessionStorage in the current tab (`components/CartProvider.tsx`, `components/lastOrder.ts`). An order URL is not a server-backed receipt lookup.
 
 Optional PostHog and Grafana Cloud integrations report analytics and telemetry when configured. The storefront needs neither service for local use (`components/posthog.ts`, `server/instrumentation-node.ts`).

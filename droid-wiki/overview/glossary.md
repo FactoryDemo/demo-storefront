@@ -10,9 +10,10 @@ These terms describe the storefront's code and storage model. Types are defined 
 | Cents | Integer amounts at the pricing and order boundaries; display formatting happens in `lib/currency.ts`. |
 | Bulk discount | 10% off a line with quantity at least three, rounded once for the whole line (`lib/pricing.ts`). |
 | Priced line | Product id, quantity, and `lineTotalCents`. |
-| Promotion | A code and function returning cents off already bulk-priced lines. The registry is empty (`lib/promotions.ts`). |
+| Promotion | A code and function returning cents off eligible priced lines. `lib/pricing.ts` excludes bulk-priced lines before calling the promotion in `lib/promotions.ts`. |
+| SAVE10 | Live code for 10% off the combined non-bulk subtotal, rounded once to cents. Matching ignores case and surrounding whitespace (`lib/promotions.ts`). |
 | Pickup slot | One of `asap`, `in-15`, `in-30`, `in-45`, or `in-60`; no inventory or scheduling service is involved. |
-| Order | A server-priced mock result, with id, name, pickup slot, lines, total, and placement timestamp. |
+| Order | A server-priced mock result, with id, name, pickup slot, lines, total, optional normalized promo code, and placement timestamp. |
 | Last order | The single order saved under `bean-and-byte:last-order` in sessionStorage (`components/lastOrder.ts`). |
 | Cart hydration | Reading the saved cart before allowing persistence writes (`components/CartProvider.tsx`). |
 | Feature flag | A PostHog-controlled boolean that defaults to false (`components/posthog.ts`). |

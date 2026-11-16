@@ -21,7 +21,9 @@ graph TD
     Checkout -->|save then navigate| Confirmation["OrderConfirmation and sessionStorage"]
 ```
 
-`components/CartProvider.tsx` shares quantities across routes and delays localStorage writes until its first read. `lib/cart.ts` supplies immutable quantity operations and validates stored entries. `lib/pricing.ts` calculates cents, and `lib/currency.ts` formats USD only at display boundaries.
+`components/CartProvider.tsx` shares quantities and an optional normalized promo code across routes. It delays localStorage writes until its first read and persists only quantities, not the promo code. `lib/cart.ts` supplies immutable quantity operations and validates stored entries. `lib/pricing.ts` calculates cents, and `lib/currency.ts` formats USD only at display boundaries.
+
+`components/CartDrawer.tsx` accepts `SAVE10` through the provider. `lib/pricing.ts` applies bulk pricing first, then passes only non-bulk lines to `lib/promotions.ts` for the order-level promo discount. Checkout previews and server orders use the same total calculation; see [Pricing](../features/pricing.md).
 
 The code is primarily TypeScript and TSX, with JavaScript automation scripts and CSS styling. Exact language counts and their collection method are in [By the numbers](../by-the-numbers.md).
 
@@ -33,7 +35,7 @@ sequenceDiagram
     participant API as app/api/orders/route.ts
     participant Core as lib/orders.ts
     participant Tab as sessionStorage
-    UI->>API: name, pickup, product ids and quantities
+    UI->>API: name, pickup, product ids and quantities, optional promoCode
     API->>Core: validateOrderRequest(unknown)
     Core-->>API: errors or normalized request
     API->>Core: buildOrder(request, id, date)
@@ -43,7 +45,7 @@ sequenceDiagram
     UI->>UI: clear cart and navigate to /orders/[id]
 ```
 
-`lib/orders.ts` merges duplicate products after validating individual input lines. The 99-unit limit applies to each submitted line, not to the merged quantity. `buildOrder` does not accept a promo code; promo support in `lib/pricing.ts` is not wired into checkout.
+`lib/orders.ts` validates known promo codes, normalizes accepted codes, and merges duplicate products after validating individual input lines. The 99-unit limit applies to each submitted line, not to the merged quantity. `buildOrder` passes the optional promo code to `calculateCartTotal` and includes it in the returned order. Priced lines retain bulk-only totals; the promo reduces the order total rather than rewriting each line.
 
 ## Runtime and telemetry
 

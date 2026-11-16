@@ -51,6 +51,8 @@ npm run test:e2e
 
 These expectations come from `AGENTS.md`, `.factory/skills/storefront-qa/SKILL.md`, and `e2e/storefront.spec.ts`.
 
+For a separate promo check, build the same three-Drip-Coffee/one-Espresso cart, enter `SAVE10` in the drawer's **Promo code** field, and click **Apply**. The total becomes $12.10 and must stay $12.10 through checkout and confirmation: bulk coffee remains $9.45 and the eligible Espresso becomes $2.65 (`tests/pricing.test.ts`, `tests/orders.test.ts`). Do not reload between applying the code and checking out; promo state is not persisted (`components/CartProvider.tsx`). The browser suite also exercises moving Espresso quantities across the bulk threshold with the code active (`e2e/storefront.spec.ts`).
+
 `GET /api/health` should return HTTP 200 with `{"status":"ok"}` (`app/api/health/route.ts`). It confirms the handler runs, not the availability of external telemetry services.
 
 ## Optional configuration

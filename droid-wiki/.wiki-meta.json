@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-13T15:57:15Z",
-  "commitHash": "411198d7052c4cc6a341372ec019dac8fffc673b",
+  "generatedAt": "2026-11-16T21:54:29Z",
+  "commitHash": "937df252d4082ae269fca4547f08d40854d9bcb7",
   "branch": "main",
   "pageCount": 31,
   "topLevelSections": [
@@ -51,7 +51,7 @@
   "videoOverview": {
     "status": "failed",
     "warnings": [
-      "Video generation unavailable: HyperFrames 0.4.44 doctor reported missing FFmpeg and FFprobe. The command exited 0, but both required capability checks failed; no video was rendered."
+      "Video generation unavailable: HyperFrames 0.4.44 doctor found neither FFmpeg nor FFprobe. Although the command exited 0, both required capability checks failed; no video was rendered."
     ]
   }
 }

@@ -26,6 +26,8 @@ The client configuration enables exception capture, disables session recording, 
 
 Property builders use shared catalog, cart, and pricing rules (`lib/analytics.ts`). `track` waits on the loader and calls capture only when a client exists (`components/posthog.ts`). Release properties are registered globally rather than repeated at each event call site.
 
+`cartProperties` in `lib/analytics.ts` receives only items, not the applied promo code. The `cart_opened` and `checkout_started` totals therefore include bulk discounts but exclude `SAVE10`, even when the UI shows a lower promo-adjusted total (`components/CartProvider.tsx`, `components/Checkout.tsx`). `order_placed` uses the server-returned total through `orderProperties`. No promo-specific event or promo-code property is emitted; see [Pricing](pricing.md) before comparing preview and placed-order totals.
+
 `app/error.tsx` reports errors with boundary `app`; `app/global-error.tsx` handles root-layout errors with boundary `root`. Both include a digest or `none` and provide a retry action. Server error capture and operational signals are separate; see [Monitoring](../how-to-monitor/index.md).
 
 ## Feature-flag behavior

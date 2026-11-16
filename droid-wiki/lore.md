@@ -1,6 +1,6 @@
 # Lore
 
-History checked **2026-11-12**, through `fbdb7e0` on `origin/main`. The repository's reachable history spans November 1–12, 2026: these are short implementation phases, not inferred organizational eras. Dates below use committer dates in America/New_York unless an author date is explicitly noted. Commit subjects and diffs establish what changed, not undocumented motives.
+History updated **2026-11-16**, through [937df25](https://github.com/FactoryDemo/demo-storefront/commit/937df252d4082ae269fca4547f08d40854d9bcb7) on `origin/main`. The repository's reachable history spans November 1–16, 2026: these are short implementation phases, not inferred organizational eras. Dates below use committer dates in America/New_York unless an author date is explicitly noted. Earlier entries are retained from the prior wiki; this refresh uses current source and commit metadata, not historical implementation bodies.
 
 For the present design, read [Architecture](overview/architecture.md); for measurement methods, see [By the numbers](by-the-numbers.md).
 
@@ -22,7 +22,7 @@ Three commits preserve **November 6 author dates**, but their committer dates ar
 
 The date distinction matters: reading only author dates would place these changes before their recorded landing in this graph. It does not establish why their dates differ.
 
-The promotion extension is still present, not a deprecated customer feature: `lib/promotions.ts` has an empty `PROMOTIONS` registry, and neither `components/Checkout.tsx` nor `app/api/orders/route.ts` accepts a promo code. The checked-in history does not demonstrate a once-live checkout promo field. The Finance archive is not tracked; its actual rules cannot be reconstructed from this repository.
+As documented in the November 13 wiki snapshot, the promotion extension was present but not yet a customer feature: the registry in `lib/promotions.ts` was empty and checkout did not accept a promo code. The November 16 entry below records its activation. The Finance archive is not tracked; its actual rules cannot be reconstructed from this repository.
 
 ## November 8: tooling and the photo-menu rewrite
 
@@ -61,6 +61,12 @@ Also on November 11, `b5c81f5` added dependency-update exclusions in `.github/de
 
 `fbdb7e0` added `.github/workflows/droid-wiki-refresh.yml`: 123 inserted lines, with no application source changes. Main pushes now trigger wiki generation with read-only GitHub-token permissions, full history, and restoration of `droid-wiki/` from `factory/droid-wiki`. A separate write-scoped job receives the generated artifact and opens or updates the rolling documentation PR. This records automation configuration, not evidence that a run, cloud upload, or PR publication succeeded. See [Wiki refresh](how-to-contribute/wiki-refresh.md) for the token fallback and publishing boundaries.
 
+## November 16: SAVE10 reaches checkout
+
+[937df25](https://github.com/FactoryDemo/demo-storefront/commit/937df252d4082ae269fca4547f08d40854d9bcb7), committed on **November 16**, activates `SAVE10` in `lib/promotions.ts`, adds cart entry in `components/CartDrawer.tsx`, and carries the normalized code through `components/CartProvider.tsx`, `components/Checkout.tsx`, and `lib/orders.ts`. It turns the earlier pricing extension into a redeemable cart-to-confirmation feature.
+
+`lib/pricing.ts` excludes bulk-discounted lines from promo eligibility, so the two discounts never stack on the same line. `tests/pricing.test.ts` and `tests/orders.test.ts` cover eligibility, rounding, normalization, and server totals; `e2e/storefront.spec.ts` crosses the quantity-three boundary with the code active, then checks the confirmation total. The shared pure-pricing boundary survives this feature addition. See [Pricing](features/pricing.md) and [Checkout](features/checkout.md).
+
 ## Oldest surviving features
 
 These trace directly to the November 1 seed:
@@ -76,4 +82,4 @@ These trace directly to the November 1 seed:
 
 The concrete retired pieces are the emoji product field and inline cart implementation (**November 8**), the historical [droid-review workflow](https://github.com/FactoryDemo/demo-storefront/blob/49fd498/.github/workflows/droid-review.yml) (**November 9**), the historical [quality-summary script](https://github.com/FactoryDemo/demo-storefront/blob/9bbbe612896c8d076148d9216bfaa4b656a787cd/scripts/quality-summary.mjs) (**November 11**), and the review workflow's CI-wait gate (**November 11**). Their replacements and commit evidence are listed above.
 
-There is **no evidence of a formal feature-deprecation policy or scheduled removal window**, and no tracked history establishes a removed real-payment flow, login system, database, or server-side order archive. Do not describe those absent capabilities as deprecated features. Likewise, an empty promotion registry is not proof that live promotions were removed.
+There is **no evidence of a formal feature-deprecation policy or scheduled removal window**, and no tracked history establishes a removed real-payment flow, login system, database, or server-side order archive. Do not describe those absent capabilities as deprecated features. The formerly empty promotion registry was an extension point activated on November 16, not evidence that a live promotion had previously been removed.

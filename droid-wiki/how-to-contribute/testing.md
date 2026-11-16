@@ -17,14 +17,14 @@ npm run format:check
 
 ## Unit coverage
 
-Vitest runs `tests/**/*.test.ts` in the Node environment. The checked-in suite contains 70 tests across seven files:
+Vitest runs `tests/**/*.test.ts` in the Node environment. At the November 16 snapshot, `npm test` passes 83 tests across seven files:
 
 | Repo-root path | Tested behavior |
 | --- | --- |
-| `tests/pricing.test.ts` | Discount boundary, mixed lines, ignored inputs/codes, currency formatting |
+| `tests/pricing.test.ts` | Bulk boundary, mixed lines, SAVE10 eligibility/non-stacking/rounding, normalized and unknown codes, currency formatting |
 | `tests/cart.test.ts` | Immutable updates, removal, counts, stored-cart filtering |
 | `tests/products.test.ts` | Id/category/price invariants, photo path strings, lookup |
-| `tests/orders.test.ts` | Validation, trimmed names, duplicate merge, server pricing, pickup labels |
+| `tests/orders.test.ts` | Validation, trimmed names, duplicate merge, promo normalization/rejection/server pricing, pickup labels |
 | `tests/analytics.test.ts` | Event/flag names, release defaults, safe property builders |
 | `tests/logger.test.ts` | Levels, protected fields, key redaction, serialization |
 | `tests/telemetry.test.ts` | Handler passthrough, generic 500/logging, unconfigured telemetry |
@@ -39,7 +39,9 @@ Vitest runs `tests/**/*.test.ts` in the Node environment. The checked-in suite c
 
 ## Browser and API checks
 
-Install Chromium once with `npx playwright install chromium`, then run `npm run test:e2e`. `e2e/storefront.spec.ts` has six checks: menu, bulk-discount display, reload persistence, checkout/confirmation/cart clearing, API repricing/rejection, and health.
+Install Chromium once with `npx playwright install chromium`, then run `npm run test:e2e`. `e2e/storefront.spec.ts` has seven checks: menu, bulk-discount display, reload persistence, checkout/confirmation/cart clearing, SAVE10 across cart/checkout/confirmation, API repricing/rejection, and health.
+
+The SAVE10 browser check in `e2e/storefront.spec.ts` moves Espresso quantities from two to three and back with the code active, then adds a non-bulk Drip Coffee and places the $11.12 order. It checks $5.31 below the bulk threshold and $7.97 at the threshold. Promo reset on reload and invalid/blank promo-form submissions are not covered by that browser check; their current behavior is described in [Cart](../features/cart.md), not claimed as browser-tested.
 
 Playwright uses desktop Chromium, retains traces on failure, and waits on `/api/health` at port 3000. Its server command is `npm run build && npm run start`; outside CI it may reuse an existing server instead. Stop a stale server you own before expecting a fresh production-build run. CI forbids `test.only`, installs Chromium system dependencies, and uploads failure reports/traces for seven days (`.github/workflows/e2e.yml`).
 

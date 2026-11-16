@@ -17,6 +17,8 @@ Catalog ids link cart items and priced lines to `lib/products.ts`. Product names
 
 `bean-and-byte:cart` in localStorage holds a `CartItem[]`, not the `Cart` wrapper (`components/CartProvider.tsx`). Parsing filters unknown ids and nonpositive/noninteger quantities but does not merge duplicates or apply 99 as a cap (`lib/cart.ts`).
 
+The context in `components/CartProvider.tsx` also holds `promoCode: string | null` and exposes `applyPromoCode(code): boolean`. It stores only canonical known codes, clears the code for blank or invalid input, and returns false for invalid input. The promo code is not persisted with cart quantities and is cleared with the cart.
+
 ## Orders
 
 `lib/orders.ts` declares:
@@ -24,13 +26,19 @@ Catalog ids link cart items and priced lines to `lib/products.ts`. Product names
 ```ts
 type PickupSlotId = "asap" | "in-15" | "in-30" | "in-45" | "in-60";
 type PickupSlot = { id: PickupSlotId; label: string };
-type OrderRequest = { name: string; pickup: PickupSlotId; items: CartItem[] };
+type OrderRequest = {
+  name: string;
+  pickup: PickupSlotId;
+  items: CartItem[];
+  promoCode?: string;
+};
 type Order = {
   id: string;
   name: string;
   pickup: PickupSlotId;
   lines: PricedLine[];
   totalCents: number;
+  promoCode?: string;
   placedAt: string;
 };
 type OrderValidation =
@@ -38,13 +46,15 @@ type OrderValidation =
   | { ok: false; errors: string[] };
 ```
 
-Validation trims names, enforces 60 characters and per-raw-line integer quantities 1–99, then merges repeated products. `buildOrder` accepts a validated request plus caller-supplied id and Date, calculates catalog prices, and writes an ISO timestamp.
+Validation trims names, enforces 60 characters and per-raw-line integer quantities 1–99, then merges repeated products. Optional promo input is checked against the registry and normalized to uppercase; omitted, null, or blank input produces no `promoCode` property (`lib/orders.ts`).
+
+`buildOrder` in `lib/orders.ts` accepts a validated request plus caller-supplied id and Date, calculates catalog prices with the optional promo, and writes an ISO timestamp. It includes `promoCode` only when present. `PricedLine.lineTotalCents` remains the bulk-only line amount; `Order.totalCents` includes the order-level promo reduction. Line totals need not sum to the final total when a promo applies (`lib/pricing.ts`, `components/OrderLines.tsx`).
 
 Only one `Order` is saved under `bean-and-byte:last-order` in sessionStorage. Loaded JSON is cast, not runtime-schema-validated (`components/lastOrder.ts`). There is no database relationship, durable receipt, payment status, or order GET resource; see [Checkout](../features/checkout.md) and [API](../api/index.md).
 
 ## Promotions, analytics and operational types
 
-- `Promotion` in `lib/promotions.ts`: `code: string`, `description: string`, `discountCents(lines: PricedLine[]): number`. The registry is empty; checkout does not accept a promo code.
+- `Promotion` in `lib/promotions.ts`: `code: string`, `description: string`, `discountCents(lines: PricedLine[]): number`. The live registry contains `SAVE10`, which rounds 10% of the combined eligible subtotal to cents. `lib/pricing.ts` passes only lines below the bulk threshold; lookup trims and uppercases codes.
 - `AnalyticsEvent` and `FeatureFlag` in `lib/analytics.ts` are unions derived from constant registries. `AnalyticsProperties` is `Record<string, string | number | boolean>`.
 - `ReleaseInfo` in `lib/analytics.ts` has optional strings `repo?`, `commitSha?`, `environment?`; builders supply local defaults.
 - `RejectionReason` in `server/telemetry.ts` is `"invalid_json" | "validation"`.
