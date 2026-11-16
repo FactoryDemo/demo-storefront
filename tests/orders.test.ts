@@ -153,15 +153,41 @@ describe("promo codes on orders", () => {
   });
 
   it("prices the order with the discount on the server", () => {
-    const base = { name: "Ada", pickup: "asap" as const, items: VALID.items };
+    const base = {
+      name: "Ada",
+      pickup: "asap" as const,
+      items: [{ productId: "drip", quantity: 2 }],
+    };
     const plain = buildOrder(base, "BB-1", new Date(0));
     const promo = buildOrder(
       { ...base, promoCode: "SAVE10" },
       "BB-2",
       new Date(0)
     );
-    expect(plain.totalCents).toBe(945);
-    expect(promo.totalCents).toBe(850);
+    expect(plain.totalCents).toBe(700);
+    expect(promo.totalCents).toBe(630);
     expect(promo.promoCode).toBe("SAVE10");
+  });
+
+  it("does not stack the promo on bulk lines after merging submitted items", () => {
+    const result = validateOrderRequest({
+      ...VALID,
+      promoCode: " save10 ",
+      items: [
+        { productId: "espresso", quantity: 1 },
+        { productId: "espresso", quantity: 2 },
+        { productId: "drip", quantity: 1 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.errors.join(", "));
+    }
+    const order = buildOrder(result.request, "BB-3", new Date(0));
+    expect(order.lines).toEqual([
+      { productId: "espresso", quantity: 3, lineTotalCents: 797 },
+      { productId: "drip", quantity: 1, lineTotalCents: 350 },
+    ]);
+    expect(order.totalCents).toBe(1112); // 797 bulk + 315 promo
   });
 });
