@@ -99,6 +99,63 @@ describe("validateOrderRequest", () => {
   });
 });
 
+describe("promo codes", () => {
+  it("accepts SAVE10 in any case and normalizes it", () => {
+    const result = validateOrderRequest({ ...VALID, promoCode: " save10 " });
+    expect(result.ok && result.request.promoCode).toBe("SAVE10");
+  });
+
+  it("treats a blank promo code as none", () => {
+    const result = validateOrderRequest({ ...VALID, promoCode: "  " });
+    expect(result.ok && result.request.promoCode).toBeUndefined();
+  });
+
+  it("rejects unknown or non-string promo codes", () => {
+    const message = ["That promo code isn't valid."];
+    expect(errorsFor({ ...VALID, promoCode: "NOPE" })).toEqual(message);
+    expect(errorsFor({ ...VALID, promoCode: 10 })).toEqual(message);
+  });
+
+  it("prices the order with the promo on the server", () => {
+    const order = buildOrder(
+      {
+        name: "Ada",
+        pickup: "asap",
+        items: [
+          { productId: "drip", quantity: 3 },
+          { productId: "espresso", quantity: 1 },
+        ],
+        promoCode: "SAVE10",
+      },
+      "BB-TEST02",
+      new Date("2026-01-02T03:04:05.000Z")
+    );
+    expect(order.totalCents).toBe(1210); // bulk drip: 945; promo espresso: 265
+    expect(order.promoCode).toBe("SAVE10");
+  });
+
+  it("keeps bulk pricing after merging repeated products with a promo", () => {
+    const result = validateOrderRequest({
+      ...VALID,
+      items: [
+        { productId: "espresso", quantity: 1 },
+        { productId: "espresso", quantity: 2 },
+      ],
+      promoCode: "SAVE10",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(
+        buildOrder(
+          result.request,
+          "BB-BULK",
+          new Date("2026-01-02T03:04:05.000Z")
+        ).totalCents
+      ).toBe(797);
+    }
+  });
+});
+
 describe("buildOrder", () => {
   it("prices lines and the total from the catalog", () => {
     const order = buildOrder(

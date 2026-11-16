@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { formatCurrency } from "../lib/currency";
 import {
   BULK_DISCOUNT_THRESHOLD,
@@ -14,7 +14,7 @@ import type { CartItem } from "../lib/types";
 import { useCart } from "./CartProvider";
 
 export function CartDrawer() {
-  const { items, isOpen, closeCart, changeQuantity } = useCart();
+  const { items, promoCode, isOpen, closeCart, changeQuantity } = useCart();
   const closeButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -74,9 +74,14 @@ export function CartDrawer() {
                 Buy {BULK_DISCOUNT_THRESHOLD} or more of any one item and that
                 line is 10% off.
               </p>
+              <PromoForm />
               <div className="cart-total">
                 <span>Total</span>
-                <span>{formatCurrency(calculateCartTotal(items))}</span>
+                <span>
+                  {formatCurrency(
+                    calculateCartTotal(items, promoCode ?? undefined)
+                  )}
+                </span>
               </div>
               <Link
                 href="/checkout"
@@ -139,5 +144,47 @@ function CartLine({ item, onChange }: CartLineProps) {
         {formatCurrency(calculateLineTotal(product, item.quantity))}
       </div>
     </li>
+  );
+}
+
+function PromoForm() {
+  const { promoCode, applyPromoCode } = useCart();
+  const [input, setInput] = useState("");
+  const [error, setError] = useState(false);
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const accepted = applyPromoCode(input);
+    setError(!accepted);
+    if (accepted) {
+      setInput("");
+    }
+  }
+
+  return (
+    <form className="promo-form" onSubmit={onSubmit}>
+      <label className="field">
+        <span>Promo code</span>
+        <input
+          name="promo"
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          autoComplete="off"
+        />
+      </label>
+      <button type="submit" className="button">
+        Apply
+      </button>
+      {promoCode && (
+        <p className="field-hint" role="status">
+          {promoCode} applied: 10% off items without a bulk discount.
+        </p>
+      )}
+      {error && (
+        <p className="field-hint" role="alert">
+          That promo code isn&apos;t valid.
+        </p>
+      )}
+    </form>
   );
 }
