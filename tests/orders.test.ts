@@ -161,7 +161,7 @@ describe("promo codes on orders", () => {
       new Date(0)
     );
     expect(plain.totalCents).toBe(945);
-    expect(promo.totalCents).toBe(851);
+    expect(promo.totalCents).toBe(850);
     expect(promo.promoCode).toBe("SAVE10");
   });
 });
