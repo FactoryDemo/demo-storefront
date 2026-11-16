@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { formatCurrency } from "../lib/currency";
 import {
   BULK_DISCOUNT_THRESHOLD,
@@ -14,7 +14,7 @@ import type { CartItem } from "../lib/types";
 import { useCart } from "./CartProvider";
 
 export function CartDrawer() {
-  const { items, isOpen, closeCart, changeQuantity } = useCart();
+  const { items, isOpen, promoCode, closeCart, changeQuantity } = useCart();
   const closeButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -74,9 +74,14 @@ export function CartDrawer() {
                 Buy {BULK_DISCOUNT_THRESHOLD} or more of any one item and that
                 line is 10% off.
               </p>
+              <PromoCodeForm />
               <div className="cart-total">
                 <span>Total</span>
-                <span>{formatCurrency(calculateCartTotal(items))}</span>
+                <span>
+                  {formatCurrency(
+                    calculateCartTotal(items, promoCode ?? undefined)
+                  )}
+                </span>
               </div>
               <Link
                 href="/checkout"
@@ -90,6 +95,47 @@ export function CartDrawer() {
         )}
       </aside>
     </>
+  );
+}
+
+function PromoCodeForm() {
+  const { promoCode, applyPromoCode } = useCart();
+  const [value, setValue] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (value.trim() === "") {
+      return;
+    }
+    const applied = applyPromoCode(value);
+    setMessage(applied ? null : "That promo code isn't valid.");
+    if (applied) {
+      setValue("");
+    }
+  }
+
+  return (
+    <form className="promo-form" onSubmit={onSubmit}>
+      <label className="field">
+        <span>Promo code</span>
+        <input
+          name="promo"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          autoComplete="off"
+        />
+      </label>
+      <button type="submit" className="button">
+        Apply
+      </button>
+      {promoCode && (
+        <p className="field-hint" role="status">
+          {promoCode} applied: 10% off your order.
+        </p>
+      )}
+      {message && <p role="alert">{message}</p>}
+    </form>
   );
 }
 

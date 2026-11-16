@@ -79,3 +79,33 @@ describe("formatCurrency", () => {
     expect(formatCurrency(123456)).toBe("$1,234.56");
   });
 });
+
+describe("SAVE10 promo code", () => {
+  const items: CartItem[] = [{ productId: "latte", quantity: 2 }]; // 950
+
+  it("takes 10% off the order", () => {
+    expect(calculateCartTotal(items, "SAVE10")).toBe(855);
+  });
+
+  it("matches case-insensitively and ignores surrounding spaces", () => {
+    expect(calculateCartTotal(items, " save10 ")).toBe(855);
+  });
+
+  it("applies after the bulk discount", () => {
+    const cart: CartItem[] = [
+      { productId: "drip", quantity: 3 }, // 945 after bulk
+      { productId: "espresso", quantity: 1 }, // 295
+    ];
+    expect(calculateCartTotal(cart)).toBe(1240);
+    expect(calculateCartTotal(cart, "SAVE10")).toBe(1116);
+  });
+
+  it("rounds the discount to the nearest cent", () => {
+    const cart: CartItem[] = [{ productId: "espresso", quantity: 1 }]; // 295
+    expect(calculateCartTotal(cart, "SAVE10")).toBe(265);
+  });
+
+  it("leaves an empty cart at 0", () => {
+    expect(calculateCartTotal([], "SAVE10")).toBe(0);
+  });
+});

@@ -132,3 +132,36 @@ describe("pickupLabel", () => {
     expect(pickupLabel("in-30")).toBe("In 30 minutes");
   });
 });
+
+describe("promo codes on orders", () => {
+  it("normalizes a valid code", () => {
+    const result = validateOrderRequest({ ...VALID, promoCode: " save10 " });
+    expect(result.ok && result.request.promoCode).toBe("SAVE10");
+  });
+
+  it("rejects an unknown or non-string code", () => {
+    expect(errorsFor({ ...VALID, promoCode: "NOPE" })).toEqual([
+      "That promo code isn't valid.",
+    ]);
+    expect(errorsFor({ ...VALID, promoCode: 10 })).toHaveLength(1);
+  });
+
+  it("treats a missing or empty code as no code", () => {
+    expect(errorsFor({ ...VALID, promoCode: "" })).toEqual([]);
+    const result = validateOrderRequest({ ...VALID, promoCode: "" });
+    expect(result.ok && result.request.promoCode).toBeUndefined();
+  });
+
+  it("prices the order with the discount on the server", () => {
+    const base = { name: "Ada", pickup: "asap" as const, items: VALID.items };
+    const plain = buildOrder(base, "BB-1", new Date(0));
+    const promo = buildOrder(
+      { ...base, promoCode: "SAVE10" },
+      "BB-2",
+      new Date(0)
+    );
+    expect(plain.totalCents).toBe(945);
+    expect(promo.totalCents).toBe(851);
+    expect(promo.promoCode).toBe("SAVE10");
+  });
+});
