@@ -6,11 +6,15 @@ This is an unauthenticated demo with mock orders, not a payment or account syste
 
 `app/api/orders/route.ts` parses JSON as unknown and uses `validateOrderRequest` in `lib/orders.ts`. Known products, pickup ids, trimmed name length, and per-input-line quantities are checked before duplicate merge and server-side pricing. Client totals are not authoritative.
 
+An optional `promoCode` must match a registered code after trimming and uppercasing; omitted, null, and blank values mean no code. Unknown or non-string nonblank values fail validation. The server recalculates promo eligibility after merging duplicate products, and `lib/pricing.ts` excludes bulk-discounted lines from `SAVE10`. Browser success text is not proof of an accepted server discount (`lib/orders.ts`, `lib/promotions.ts`).
+
 The 99-unit limit is not a total-order cap: duplicate valid lines can merge above 99. There is no handler-level maximum line count, request-size limit, rate limiter, authentication, or idempotency. Hosting/platform limits are not defined by this source. See [API](api/index.md).
 
 ## Browser storage
 
 `lib/cart.ts` filters stored cart entries but does not cap quantities or merge duplicates. `components/CartProvider.tsx` does not catch storage failures. `components/lastOrder.ts` catches read/write/parse errors but casts parsed JSON to `Order` without schema validation.
+
+The applied promo code is in-memory provider state, not part of the localStorage cart. Reloading resets it, while a successful order may save the normalized code with the last receipt (`components/CartProvider.tsx`, `lib/orders.ts`). This lifecycle is a convenience behavior, not a security boundary; the API independently validates submitted codes.
 
 The last receipt includes the pickup name in sessionStorage; it is tab-local, editable browser data, not a trusted order database. There is no server-side order history. Use synthetic names when testing.
 

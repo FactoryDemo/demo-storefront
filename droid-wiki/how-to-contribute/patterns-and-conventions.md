@@ -8,6 +8,8 @@ Store prices and totals as cents. Route every total through `lib/pricing.ts`, an
 
 Accept HTTP payloads as `unknown`, validate them in `lib/orders.ts`, and only then call `buildOrder`. Validation returns a discriminated union with either a clean request or a list of errors. The API must calculate totals from catalog data, not accept browser totals (`app/api/orders/route.ts`).
 
+`lib/pricing.ts` excludes bulk-discounted lines before calling a promotion from `lib/promotions.ts`. `SAVE10` rounds its discount on the combined eligible subtotal; do not apply it independently to each displayed line or stack it on bulk pricing. Unknown codes are ignored by the permissive pricing helper but rejected by order validation in `lib/orders.ts`. See [Pricing](../features/pricing.md) for examples.
+
 ## Boundaries
 
 - `lib/`: no React or I/O. Prefer named exports and explicit types.
